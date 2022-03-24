@@ -1,0 +1,32 @@
+p {
+    font-style: italic;
+}
+
+body {
+    margin: 20px;
+    background: #222;
+    min-width: 960px;
+    color: whitesmoke;
+    font-family: Barlow;
+}
+
+rect {
+    fill: none;
+    pointer-events: all;
+}
+
+circle {
+    fill: none;
+    stroke-width: 2.5px;
+}
+
+.menu {
+    float: left;
+    width: 20%;
+}
+
+.stippling {
+    float: left;
+    width: 70%;
+    padding-left: 10%;
+}

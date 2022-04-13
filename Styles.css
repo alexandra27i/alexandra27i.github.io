@@ -1,32 +1,121 @@
-p {
-    font-style: italic;
+/*region global*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+
+@font-face {
+    font-family: Barlow;
+    src: url("res/fonts/barlow/Barlow-Regular.ttf");
+}
+
+:root {
+    --color_foreground: whitesmoke;
+    --color_background: dimgray;
+    --color_accent: aqua;
+}
+
+html,
+body{
+    height: 98%;
 }
 
 body {
-    margin: 20px;
-    background: #222;
-    min-width: 960px;
-    color: whitesmoke;
-    font-family: Barlow;
+    background: var(--color_background);
+    color: var(--color_foreground);
+    font-family: Barlow, monospace;
 }
 
-rect {
-    fill: none;
-    pointer-events: all;
+header {
+    height: 15%;
+    width: 100%;
+    margin-top: 1%;
 }
 
-circle {
-    fill: none;
-    stroke-width: 2.5px;
+.app {
+    display: flex;
+    height: 85%;
+    width: 100%;
+    border: 0.1em solid var(--color_foreground);
+    border-top-left-radius: 2em;
 }
 
-.menu {
-    float: left;
-    width: 20%;
+a {
+    color: var(--color_accent);
 }
 
-.stippling {
-    float: left;
-    width: 70%;
-    padding-left: 10%;
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*endregion*/
+
+/*region utility*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+
+.italic {
+    font-style: italic;
 }
+
+.cohesive {
+    margin-bottom: -0.4em;
+}
+
+.centered {
+    text-align: center;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*endregion*/
+
+/*region UI*/
+/*--------------------------------------------------------------------------------------------------------------------*/
+
+.output {
+    flex-grow: 100;
+}
+
+.ui {
+    height: 100%;
+    min-width: 15em;
+    max-width: 25em;
+    width: 30%;
+    border-right: 0.1em solid var(--color_foreground);
+    overflow-y: auto;
+}
+
+.ui > div {
+    width: 94%;
+    padding: 3%;
+    border-bottom: 0.1em solid var(--color_foreground);
+}
+
+.ui > div > input[type="checkbox"] {
+    appearance: none;
+}
+.ui > div > input[type="checkbox"]+label::before {
+    width: 1em;
+    height: 1em;
+    border-radius: 1em;
+    border: 0.1em solid var(--color_foreground);
+    background-color: var(--color_background);
+    content: "";
+    float: right;
+}
+.ui > div > input[type="checkbox"]:checked+label::before {
+    box-shadow: inset 0 0 0 0.25em var(--color_background);
+    background-color: var(--color_accent);
+}
+
+.ui > div > input[type="button"] {
+    width: 100%;
+    border: 0 solid var(--color_foreground);
+    padding: 0.2em;
+    border-radius: 0.2em;
+    background: var(--color_background);
+    color: var(--color_foreground);
+    transition: 0.5s;
+}
+
+.ui > div > input[type="button"]:hover {
+    background: var(--color_background);
+    color: var(--color_accent);
+    border: 0 solid var(--color_accent);
+}
+
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*endregion*/

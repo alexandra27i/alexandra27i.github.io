@@ -14,7 +14,7 @@ function init() {
     renderer = new Renderer(d3surface);
 
     document.getElementById('iUploadImage').addEventListener('change', processImage);
-    document.getElementById('iDotSize').addEventListener('change', dotsizeChanged);
+    document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
     window.addEventListener('resize', windowResized);
 
     var elements = document.getElementsByClassName("reactive_range");

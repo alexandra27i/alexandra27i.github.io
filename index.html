@@ -2,9 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="styles.css">
     <script src="lib/d3.min.js"></script>
-    <script src="Code.js"></script>
-    <link rel="stylesheet" href="Styles.css">
+    <script src="code.js"></script>
+
+    <script type="x-shader/x-vertex" id="shader-vs">
+        attribute vec3 pos_size;
+        uniform vec2 screen;
+        varying vec2 location;
+        varying float radius;
+
+        void main() {
+            gl_Position = vec4(pos_size.xy, 0.0, 1.0);
+            location = screen * (pos_size.xy*0.5 + 0.5);
+            radius = pos_size.z/2.0;
+            gl_PointSize = pos_size.z;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="shader-fs">
+        precision mediump float;
+        uniform vec4 dot_color;
+
+        varying vec2 location;
+        varying float radius;
+        void main() {
+            float dist = distance(location, gl_FragCoord.xy);
+            if(dist > radius) discard;
+
+            gl_FragColor = dot_color;
+        }
+    </script>
 </head>
 
 <body onload="init()">
@@ -34,7 +61,7 @@
                 <label for="iMachbanding">machbanding</label>
             </div>
             <div>
-                <input class="reactive_range" type="range" id="iDotSize" min="4" max="12" value="8">
+                <input class="reactive_range" type="range" id="iDotSize" min="1" max="100" value="50">
                 <label for="iDotSize">dot size</label>
             </div>
             <div>
@@ -61,7 +88,7 @@
         </div>
 
         <div class="output">
-            <img id="testImage" style="width: 100%;height: 100%;border-width: 0;object-fit: fill;"/>
+            <canvas id="d3surface"></canvas>
         </div>
     </div>
 </body>

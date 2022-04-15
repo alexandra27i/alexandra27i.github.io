@@ -6,22 +6,23 @@
     <script src="lib/d3.min.js"></script>
     <script src="code.js"></script>
 
-    <script type="x-shader/x-vertex" id="shader-vs">
-        attribute vec3 pos_size;
+    <script type="x-shader/x-vertex" id="dots-vs">
+        attribute vec2 aPos;
+        attribute float aSize;
         uniform vec2 screen;
         varying vec2 location;
         varying float radius;
 
         void main() {
-            gl_Position = vec4(pos_size.xy, 0.0, 1.0);
-            location = screen * (pos_size.xy * 0.5 + 0.5);
-            radius = pos_size.z / 2.0;
-            gl_PointSize = radius * 2.0;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+            location = screen * (aPos * 0.5 + 0.5);
+            radius = aSize / 2.0;
+            gl_PointSize = aSize;
         }
     </script>
-    <script type="x-shader/x-fragment" id="shader-fs">
+    <script type="x-shader/x-fragment" id="dots-fs">
         precision mediump float;
-        uniform vec3 dot_color;
+        uniform vec3 color;
         varying vec2 location;
         varying float radius;
 
@@ -36,7 +37,22 @@
             float dist = distance(location, gl_FragCoord.xy); //distance to original point
             if(dist > radius) discard;
 
-            gl_FragColor = vec4(dot_color, getAlpha(dist));
+            gl_FragColor = vec4(color, getAlpha(dist));
+        }
+    </script>
+    <script type="x-shader/x-vertex" id="lines-vs">
+        attribute vec2 aPos;
+
+        void main() {
+            gl_Position = vec4(aPos.xy, 0.0, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="lines-fs">
+        precision mediump float;
+        uniform vec3 line_color;
+
+        void main() {
+            gl_FragColor = vec4(line_color, 1.0);
         }
     </script>
 </head>

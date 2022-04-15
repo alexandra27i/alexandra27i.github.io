@@ -4,15 +4,15 @@
 let d3surface;
 let renderer;
 
-let numStipples = 1000;
-let stippleSizeMin = 2;
-let stippleSizeMax = 30;
+let numStipples = 100;
+let stippleSizeMin = 10;
+let stippleSizeMax = 10;
 let stipples;
 let lastScalingFactor;
 
 function init() {
     d3surface = document.getElementById('d3surface');
-    //renderer = new Renderer(d3surface);
+    renderer = new Renderer(d3surface);
 
     lastScalingFactor = getScalingFactor();
 
@@ -96,8 +96,6 @@ function initStipples() {
         stipples[i+1] = pran();
         stipples[i+2] = sran();
     }
-
-
 }
 
 function iterateStepStipples() {
@@ -105,36 +103,8 @@ function iterateStepStipples() {
 }
 
 function redrawStipples() {
-    //renderer.draw(stipples);
-
-    let context = d3surface.getContext("2d");
-    d3surface.width = d3surface.clientWidth;
-    d3surface.height = d3surface.clientHeight;
-    const data = Array(100)
-        .fill()
-        .map((_, i) => ({ x: (i * d3surface.width) / 100, y: Math.random() * d3surface.height }));
-
-    const voronoi = d3.Delaunay.from(
-        data,
-        (d) => d.x,
-        (d) => d.y
-    ).voronoi([0, 0, d3surface.width, d3surface.height]);
-
-    context.clearRect(0, 0, d3surface.width, d3surface.height);
-    context.fillStyle = "black";
-    context.beginPath();
-    voronoi.delaunay.renderPoints(context, 1);
-    context.fill();
-
-    context.lineWidth = 1.5;
-
-    const segments = voronoi.render().split(/M/).slice(1);
-    let i = 0;
-    for (const segment of segments) {
-        context.beginPath();
-        context.strokeStyle = "black";
-        context.stroke(new Path2D("M" + segment));
-    }
+    renderer.drawVoronoi(stipples, true);
+    renderer.drawDots(stipples, false);
 }
 
 function scaleStipples() {
@@ -148,88 +118,156 @@ function scaleStipples() {
 
 //render dots via WebGL
 //shaders are on the main page in script tags (syntax highlighting, yey)
-class Renderer {
-    #shader_id_screenResolution = "screen";
-    #shader_id_pos_size = "pos_size";
-    #shader_id_dot_color = "dot_color";
-
+class Renderer { //todo: stippling data object as a class, to streamline any buffer indices and so on
     #canvas;
     #gl;
-    #shader;
-    #vbo;
+    #shaderDots;
+    #shaderLines;
+    #vboDots;
+    #vboLines;
 
-    clear = [1.0, 1.0, 1.0];
-    dot_color = [0.2, 0.2, 0.2];
+    clear = [0.5, 0.5, 0.5];
+    color = [0.2, 0.2, 0.2];
 
     constructor(canvas) {
         this.#canvas = canvas;
-        this.#gl = canvas.getContext('webgl', {antialias: false, alpha: true})
+        this.#gl = canvas.getContext(
+            'webgl',
+            {antialias: false, alpha: true, preserveDrawingBuffer: true}
+        );
         this.#init_shader();
         this.#init_buffers();
     }
 
-    draw(data) {
-        //ensure canvas consistency
-        this.#canvas.width = this.#canvas.clientWidth;
-        this.#canvas.height = this.#canvas.clientHeight;
+    drawDots(data, clearBefore = true) {
+        this.#fixCanvas();
+        this.#gl.useProgram(this.#shaderDots);
 
-        //init
-        this.#gl.useProgram(this.#shader);
-        this.#bind(data);
-        this.#uniforms();
+        //buffers
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboDots);
+        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(data), this.#gl.STATIC_DRAW);
+        let aPos = this.#gl.getAttribLocation(this.#shaderDots, "aPos");
+        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 12, 0);
+        this.#gl.enableVertexAttribArray(aPos);
+        let aSize = this.#gl.getAttribLocation(this.#shaderDots, "aSize");
+        this.#gl.vertexAttribPointer(aSize, 1, this.#gl.FLOAT, false, 12, 8);
+        this.#gl.enableVertexAttribArray(aSize);
 
-        //prepare
-        this.#gl.enable(this.#gl.BLEND);
-        this.#gl.blendFunc(this.#gl.SRC_ALPHA, this.#gl.ONE_MINUS_SRC_ALPHA);
-        this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
-        this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
-        this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
-
-        //draw
-        this.#gl.drawArrays(this.#gl.POINTS, 0, data.length/3);
-
-        //clean finish
-        this.#unbind();
-    }
-
-    #init_shader() {
-        var vertShader = this.#gl.createShader(this.#gl.VERTEX_SHADER);
-        this.#gl.shaderSource(vertShader, document.getElementById("shader-vs").innerHTML);
-        this.#gl.compileShader(vertShader);
-
-        var fragShader = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
-        this.#gl.shaderSource(fragShader, document.getElementById("shader-fs").innerHTML);
-        this.#gl.compileShader(fragShader);
-
-        this.#shader = this.#gl.createProgram();
-        this.#gl.attachShader(this.#shader, vertShader);
-        this.#gl.attachShader(this.#shader, fragShader);
-
-        this.#gl.linkProgram(this.#shader);
-    }
-    #init_buffers() {
-        this.#vbo = this.#gl.createBuffer();
-    }
-    #bind(data) {
-        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vbo);
-        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(data), this.#gl.STATIC_DRAW); //glBufferSubData?
-
-        let coord = this.#gl.getAttribLocation(this.#shader, this.#shader_id_pos_size);
-        this.#gl.vertexAttribPointer(coord, 3, this.#gl.FLOAT, false, 0, 0);
-        this.#gl.enableVertexAttribArray(coord);
-    }
-    #unbind() {
-        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
-    }
-    #uniforms() {
-        this.#gl.uniform2fv(this.#gl.getUniformLocation(this.#shader,
-            this.#shader_id_screenResolution), [
+        //uniforms
+        this.#gl.uniform2fv(this.#gl.getUniformLocation(this.#shaderDots,
+                "screen"), [
                 this.#canvas.width,
                 this.#canvas.height
             ]
         );
-        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shader,
-            this.#shader_id_dot_color), this.dot_color);
+        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderDots,
+            "color"), this.color);
+
+        //draw
+        this.#prepareDrawing(clearBefore);
+        this.#gl.drawArrays(this.#gl.POINTS, 0, data.length/3);
+
+        //clean finish
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
+    }
+
+    drawVoronoi(data, clearBefore = true) {
+        this.#fixCanvas();
+        let lines = this.#generateVoronoi(data);
+        this.#gl.useProgram(this.#shaderLines);
+
+        //buffers
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboLines);
+        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(lines), this.#gl.STATIC_DRAW);
+        let aPos = this.#gl.getAttribLocation(this.#shaderLines, "aPos");
+        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 0, 0);
+        this.#gl.enableVertexAttribArray(aPos);
+
+        //uniforms
+        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderLines,
+            "line_color"), this.color);
+
+        //draw
+        this.#prepareDrawing(clearBefore);
+        this.#gl.drawArrays(this.#gl.LINES, 0, lines.length/2);
+
+        //clean finish
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
+    }
+
+    #init_shader() {
+        //dots shader
+        let dotvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
+        this.#gl.shaderSource(dotvs, document.getElementById("dots-vs").innerHTML);
+        this.#gl.compileShader(dotvs);
+        let dotfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
+        this.#gl.shaderSource(dotfs, document.getElementById("dots-fs").innerHTML);
+        this.#gl.compileShader(dotfs);
+        this.#shaderDots = this.#gl.createProgram();
+        this.#gl.attachShader(this.#shaderDots, dotvs);
+        this.#gl.attachShader(this.#shaderDots, dotfs);
+        this.#gl.linkProgram(this.#shaderDots);
+
+        //lines shader
+        let linesvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
+        this.#gl.shaderSource(linesvs, document.getElementById("lines-vs").innerHTML);
+        this.#gl.compileShader(linesvs);
+        let linesfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
+        this.#gl.shaderSource(linesfs, document.getElementById("lines-fs").innerHTML);
+        this.#gl.compileShader(linesfs);
+        this.#shaderLines = this.#gl.createProgram();
+        this.#gl.attachShader(this.#shaderLines, linesvs);
+        this.#gl.attachShader(this.#shaderLines, linesfs);
+        this.#gl.linkProgram(this.#shaderLines);
+    }
+
+    #init_buffers() {
+        this.#vboDots = this.#gl.createBuffer();
+        this.#vboLines = this.#gl.createBuffer();
+    }
+
+    #fixCanvas() {
+        this.#canvas.width = this.#canvas.clientWidth;
+        this.#canvas.height = this.#canvas.clientHeight;
+    }
+
+    #prepareDrawing(clearBefore) {
+        this.#gl.enable(this.#gl.BLEND);
+        this.#gl.blendFunc(this.#gl.SRC_ALPHA, this.#gl.ONE_MINUS_SRC_ALPHA);
+        if(clearBefore) {
+            this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
+            this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
+        }
+        this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
+    }
+
+    #generateVoronoi(data) {
+        let points = Array(numStipples)
+            .fill()
+            .map((_, i) => ({
+                x: data[i*3],
+                y: data[i*3+1]
+            }));
+
+        let voronoi = d3.Delaunay.from(
+            points,
+            (d) => d.x,
+            (d) => d.y
+        ).voronoi([-1, -1, 1, 1]);
+
+        const segments = voronoi.render().split(/M/).slice(1);
+        let lines = new Array(segments.length*4);
+        for (let i = 0; i < segments.length; i++) { //p1x,p1y L p2x,p2y
+            let p1p2 = segments[i].split(/L/);
+            let p1 = p1p2[0].split(/,/);
+            let p2 = p1p2[1].split(/,/);
+            lines[i*4  ] = parseFloat(p1[0]);
+            lines[i*4+1] = parseFloat(p1[1]);
+            lines[i*4+2] = parseFloat(p2[0]);
+            lines[i*4+3] = parseFloat(p2[1]);
+        }
+
+        return lines;
     }
 }
 

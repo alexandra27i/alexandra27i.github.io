@@ -22,22 +22,21 @@
     <script type="x-shader/x-fragment" id="shader-fs">
         precision mediump float;
         uniform vec3 dot_color;
-        uniform vec3 clear_color;
         varying vec2 location;
         varying float radius;
 
-        vec3 smoothColor(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
+        float getAlpha(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
             float covered = dist / radius;
-            float factor = 0.0;
-            if(covered > 0.95) factor = (covered - 0.95) / 0.05;
-            return dot_color * (1.0 - factor) + factor * clear_color;
+            float a = 1.0;
+            if(covered > 0.95) a = 1.0 - (covered - 0.95) / 0.05;
+            return a;
         }
 
         void main() {
             float dist = distance(location, gl_FragCoord.xy); //distance to original point
             if(dist > radius) discard;
 
-            gl_FragColor = vec4(smoothColor(dist), 1.0);
+            gl_FragColor = vec4(dot_color, getAlpha(dist));
         }
     </script>
 </head>

@@ -8,10 +8,13 @@ let numStipples = 1000;
 let stippleSizeMin = 2;
 let stippleSizeMax = 30;
 let stipples;
+let lastScalingFactor;
 
 function init() {
     d3surface = document.getElementById('d3surface');
     renderer = new Renderer(d3surface);
+
+    lastScalingFactor = getScalingFactor();
 
     document.getElementById('iUploadImage').addEventListener('change', processImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
@@ -65,6 +68,10 @@ function windowResized() {
     }
 }
 
+function getScalingFactor() {
+    return document.getElementById("iDotSize").value/100.0;
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 //endregion
 
@@ -81,7 +88,7 @@ function processImage() {
 }
 
 function initStipples() {
-    stipples = new Array(numStipples * 3);
+    stipples = new Array(numStipples * 3); //x,y,size for each stipple
     const pran = d3.randomUniform(-1, 1);
     const sran = d3.randomUniform(stippleSizeMin, stippleSizeMax);
     for (let i = 0; i < numStipples*3; i+=3) {
@@ -89,20 +96,25 @@ function initStipples() {
         stipples[i+1] = pran();
         stipples[i+2] = sran();
     }
+
+
+}
+
+function iterateStepStipples() {
+
 }
 
 function redrawStipples() {
     renderer.draw(stipples);
 }
 
-let lastFactor = 0.5;
 function scaleStipples() {
-    let sizeFactor = document.getElementById("iDotSize").value/100.0;
+    let scalingFactor = getScalingFactor();
     for(let i = 0; i < numStipples * 3; i+=3) {
-        stipples[i+2] /= lastFactor;
-        stipples[i+2] *= sizeFactor;
+        stipples[i+2] /= lastScalingFactor;
+        stipples[i+2] *= scalingFactor;
     }
-    lastFactor = sizeFactor;
+    lastScalingFactor = scalingFactor;
 }
 
 //render dots via WebGL
@@ -123,7 +135,7 @@ class Renderer {
 
     constructor(canvas) {
         this.#canvas = canvas;
-        this.#gl = canvas.getContext('webgl', {antialias: false, alpha: false})
+        this.#gl = canvas.getContext('webgl', {antialias: false, alpha: true})
         this.#init_shader();
         this.#init_buffers();
     }
@@ -133,15 +145,19 @@ class Renderer {
         this.#canvas.width = this.#canvas.clientWidth;
         this.#canvas.height = this.#canvas.clientHeight;
 
-        //prepare draw
+        //init
         this.#gl.useProgram(this.#shader);
         this.#bind(data);
         this.#uniforms();
 
-        //draw
+        //prepare
+        this.#gl.enable(this.#gl.BLEND);
+        this.#gl.blendFunc(this.#gl.SRC_ALPHA, this.#gl.ONE_MINUS_SRC_ALPHA);
         this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
         this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
+
+        //draw
         this.#gl.drawArrays(this.#gl.POINTS, 0, data.length/3);
 
         //clean finish
@@ -186,8 +202,6 @@ class Renderer {
         );
         this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shader,
             this.#shader_id_dot_color), this.dot_color);
-        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shader,
-            this.#shader_id_clear_color), this.clear);
     }
 }
 

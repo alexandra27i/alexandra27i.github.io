@@ -111,6 +111,7 @@ class Renderer {
     #shader_id_screenResolution = "screen";
     #shader_id_pos_size = "pos_size";
     #shader_id_dot_color = "dot_color";
+    #shader_id_clear_color = "clear_color";
 
     #canvas;
     #gl;
@@ -118,11 +119,11 @@ class Renderer {
     #vbo;
 
     clear = [1.0, 1.0, 1.0];
-    dot_color = [0.0, 0.0, 0.0, 1.0];
+    dot_color = [0.2, 0.2, 0.2];
 
     constructor(canvas) {
         this.#canvas = canvas;
-        this.#gl = canvas.getContext('webgl')
+        this.#gl = canvas.getContext('webgl', {antialias: false, alpha: false})
         this.#init_shader();
         this.#init_buffers();
     }
@@ -183,8 +184,10 @@ class Renderer {
                 this.#canvas.height
             ]
         );
-        this.#gl.uniform4fv(this.#gl.getUniformLocation(this.#shader,
+        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shader,
             this.#shader_id_dot_color), this.dot_color);
+        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shader,
+            this.#shader_id_clear_color), this.clear);
     }
 }
 

@@ -14,22 +14,30 @@
 
         void main() {
             gl_Position = vec4(pos_size.xy, 0.0, 1.0);
-            location = screen * (pos_size.xy*0.5 + 0.5);
-            radius = pos_size.z/2.0;
-            gl_PointSize = pos_size.z;
+            location = screen * (pos_size.xy * 0.5 + 0.5);
+            radius = pos_size.z / 2.0;
+            gl_PointSize = radius * 2.0;
         }
     </script>
     <script type="x-shader/x-fragment" id="shader-fs">
         precision mediump float;
-        uniform vec4 dot_color;
-
+        uniform vec3 dot_color;
+        uniform vec3 clear_color;
         varying vec2 location;
         varying float radius;
+
+        vec3 smoothColor(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
+            float covered = dist / radius;
+            float factor = 0.0;
+            if(covered > 0.95) factor = (covered - 0.95) / 0.05;
+            return dot_color * (1.0 - factor) + factor * clear_color;
+        }
+
         void main() {
-            float dist = distance(location, gl_FragCoord.xy);
+            float dist = distance(location, gl_FragCoord.xy); //distance to original point
             if(dist > radius) discard;
 
-            gl_FragColor = dot_color;
+            gl_FragColor = vec4(smoothColor(dist), 1.0);
         }
     </script>
 </head>

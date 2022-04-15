@@ -12,7 +12,7 @@ let lastScalingFactor;
 
 function init() {
     d3surface = document.getElementById('d3surface');
-    renderer = new Renderer(d3surface);
+    //renderer = new Renderer(d3surface);
 
     lastScalingFactor = getScalingFactor();
 
@@ -105,7 +105,36 @@ function iterateStepStipples() {
 }
 
 function redrawStipples() {
-    renderer.draw(stipples);
+    //renderer.draw(stipples);
+
+    let context = d3surface.getContext("2d");
+    d3surface.width = d3surface.clientWidth;
+    d3surface.height = d3surface.clientHeight;
+    const data = Array(100)
+        .fill()
+        .map((_, i) => ({ x: (i * d3surface.width) / 100, y: Math.random() * d3surface.height }));
+
+    const voronoi = d3.Delaunay.from(
+        data,
+        (d) => d.x,
+        (d) => d.y
+    ).voronoi([0, 0, d3surface.width, d3surface.height]);
+
+    context.clearRect(0, 0, d3surface.width, d3surface.height);
+    context.fillStyle = "black";
+    context.beginPath();
+    voronoi.delaunay.renderPoints(context, 1);
+    context.fill();
+
+    context.lineWidth = 1.5;
+
+    const segments = voronoi.render().split(/M/).slice(1);
+    let i = 0;
+    for (const segment of segments) {
+        context.beginPath();
+        context.strokeStyle = "black";
+        context.stroke(new Path2D("M" + segment));
+    }
 }
 
 function scaleStipples() {
@@ -123,7 +152,6 @@ class Renderer {
     #shader_id_screenResolution = "screen";
     #shader_id_pos_size = "pos_size";
     #shader_id_dot_color = "dot_color";
-    #shader_id_clear_color = "clear_color";
 
     #canvas;
     #gl;

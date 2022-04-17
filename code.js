@@ -156,7 +156,7 @@ function iterateStepStipples() {
 
             let _x = Math.trunc((x/d3surface.width)*intensitiesSize[0]);
             let _y = Math.trunc((y/d3surface.height)*intensitiesSize[1]);
-            let _intensityPos = _y*intensitiesSize[0] + _x;
+            let _intensityPos = (intensitiesSize[1]-1 -_y)*intensitiesSize[0] + _x;
 
             let intensityAtPos = 255.0 - intensities[_intensityPos];
             cellStipple.intensity += intensityAtPos;

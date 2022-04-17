@@ -5,8 +5,8 @@ let d3surface;
 let renderer;
 
 let numStipples = 100;
-let stippleSizeMin = 2;
-let stippleSizeMax = 20;
+let stippleSizeMin = 0.3;
+let stippleSizeMax = 3;
 let stipples;
 let lastScalingFactor;
 let intensities;
@@ -100,8 +100,7 @@ function processImage(fileEvent) {
             stipplingReady = false;
             intensities = new Array(subpixels.length/4);
             for(let i = 0; i < subpixels.length; i+=4) {
-                let avg = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3;
-                intensities[i/4] = avg;
+                intensities[i/4] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
             }
             intensitiesSize = [img.width, img.height];
             initStipples();
@@ -155,10 +154,9 @@ function iterateStepStipples() {
             cellStippleIndex = delaunay.find(x, y, cellStippleIndex);
             let cellStipple = points[cellStippleIndex];
 
-            let _x = x/d3surface.width*intensitiesSize[0];
-            let _y = y/d3surface.height*intensitiesSize[1];
-            let _max = intensitiesSize[0]*intensitiesSize[1]-1;
-            let _intensityPos = Math.max(0, Math.min(Math.trunc(_x*intensitiesSize[1] + _y), _max));
+            let _x = Math.trunc((x/d3surface.width)*intensitiesSize[0]);
+            let _y = Math.trunc((y/d3surface.height)*intensitiesSize[1]);
+            let _intensityPos = _y*intensitiesSize[0] + _x;
 
             let intensityAtPos = 255.0 - intensities[_intensityPos];
             cellStipple.intensity += intensityAtPos;
@@ -180,7 +178,7 @@ function iterateStepStipples() {
         let avg_intensity = cellStipple.intensity / area;
 
         //map intensity to a radius
-        let radius = (avg_intensity / 255.0) * (stippleSizeMax - stippleSizeMin) + stippleSizeMin;
+        let radius = ((avg_intensity / 255.0) * (stippleSizeMax - stippleSizeMin)) + stippleSizeMin;
 
         //calculate thresholds
         let stippleArea = Math.PI * radius * radius;
@@ -247,7 +245,7 @@ function iterateStepStipples() {
 
 function redrawStipples() {
     renderer.drawDots(stipples, true);
-    renderer.drawVoronoi(stipples, false);
+    //renderer.drawVoronoi(stipples, false);
 }
 
 function scaleStipples() {

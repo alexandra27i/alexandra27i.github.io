@@ -11,8 +11,6 @@ let stipples;
 let lastScalingFactor;
 let intensities;
 let intensitiesSize;
-let stipplingReady = false;
-
 function init() {
     d3surface = document.getElementById('d3surface');
     renderer = new Renderer(d3surface);
@@ -97,18 +95,22 @@ function processImage(fileEvent) {
             let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
 
             //grayscales
-            stipplingReady = false;
             intensities = new Array(subpixels.length/4);
             for(let i = 0; i < subpixels.length; i+=4) {
                 intensities[i/4] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
             }
             intensitiesSize = [img.width, img.height];
             initStipples();
-            stipplingReady = true;
+            runStippling();
         }
         img.src = readerEvent.target.result;
     }
     reader.readAsDataURL(fileEvent.target.files[0]);
+}
+
+function runStippling() {
+    //todo: do that threaded and add ui elements to make this process visible
+    for(let i = 0; !iterateStepStipples(); i++) redrawStipples();
 }
 
 function initStipples() {
@@ -124,7 +126,6 @@ function initStipples() {
 
 let threshold = 0.4;
 function iterateStepStipples() {
-    if(!stipplingReady) return;
     d3surface.width = d3surface.clientWidth;
     d3surface.height = d3surface.clientHeight;
 
@@ -219,11 +220,6 @@ function iterateStepStipples() {
         }
     }
 
-    console.log("deleted: " + deleted.length);
-    console.log("splits: " + splits.length);
-    console.log("moved: " + moved.length);
-
-
     //adjust threshold and rebuild points
     threshold += 0.01;
     points.length = moved.length + splits.length;
@@ -239,8 +235,7 @@ function iterateStepStipples() {
         stipples[i*3+2] = points[i].radius;
     }
 
-    //display them
-    redrawStipples();
+    return (deleted.length + splits.length) < (moved.length + splits.length + deleted.length)*0.05;
 }
 
 function redrawStipples() {

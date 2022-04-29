@@ -84,11 +84,11 @@
                 <label for="iMachbanding">machbanding</label>
             </div>
             <div>
-                <input class="reactive_range" type="range" id="iDotSize" min="1" max="100" value="50">
+                <input class="reactive_range" type="range" id="iDotSize" min="1" max="200" value="100">
                 <label for="iDotSize">dot size</label>
             </div>
             <div>
-                <input type="button" value="Stippling Step" onclick="iterateStepStipples();redrawStipples();" />
+                <input type="button" value="Stippling Step" onclick="stippler.step();stippler.draw();" />
             </div>
             <div>
                 <p class="centered">more settings ...</p>

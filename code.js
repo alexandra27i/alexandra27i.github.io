@@ -1,21 +1,10 @@
 //region init
 //----------------------------------------------------------------------------------------------------------------------
 
-let d3surface;
-let renderer;
-
-let numStipples = 100;
-let stippleSizeMin = 0.3;
-let stippleSizeMax = 3;
-let stipples;
-let lastScalingFactor;
-let intensities;
-let intensitiesSize;
+let stippler;
 function init() {
-    d3surface = document.getElementById('d3surface');
-    renderer = new Renderer(d3surface);
+    stippler = new Stippler(document.getElementById('d3surface'));
 
-    lastScalingFactor = getScalingFactor();
 
     document.getElementById('iUploadImage').addEventListener('change', processImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
@@ -54,20 +43,14 @@ function adjustRangeVisuals() {
 }
 
 function dotsizeChanged() {
-    scaleStipples();
-    redrawStipples();
+    let factor = document.getElementById("iDotSize").value/100.0;
+
+    stippler.scaleAll(factor);
+    stippler.draw();
 }
 
 function windowResized() {
-    if(d3surface.width !== d3surface.clientWidth || d3surface.height !== d3surface.clientHeight) {
-        d3surface.width = d3surface.clientWidth;
-        d3surface.height = d3surface.clientHeight;
-        redrawStipples();
-    }
-}
-
-function getScalingFactor() {
-    return document.getElementById("iDotSize").value/100.0;
+    stippler.draw();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -95,166 +78,253 @@ function processImage(fileEvent) {
             let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
 
             //grayscales
-            intensities = new Array(subpixels.length/4);
+            let density = Array.from(Array(ca.width), () => new Array(ca.height));
             for(let i = 0; i < subpixels.length; i+=4) {
-                intensities[i/4] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
+                let y = Math.trunc((i/4) / ca.width);
+                let x = (i/4) - y * ca.width;
+
+                density[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
             }
-            intensitiesSize = [img.width, img.height];
-            initStipples();
-            runStippling();
+            stippler.initialize(density, [0.1, 5]); //todo: use something from the UI for this?
+            stippler.run();
+            stippler.draw();
         }
         img.src = readerEvent.target.result;
     }
     reader.readAsDataURL(fileEvent.target.files[0]);
 }
 
-function runStippling() {
-    //todo: do that threaded and add ui elements to make this process visible
-    for(let i = 0; !iterateStepStipples(); i++) redrawStipples();
-}
 
-function initStipples() {
-    stipples = new Array(numStipples * 3); //x,y,size for each stipple
-    const pran = d3.randomUniform(-1, 1);
-    const sran = d3.randomUniform(stippleSizeMin, stippleSizeMax);
-    for (let i = 0; i < numStipples*3; i+=3) {
-        stipples[i] = pran();
-        stipples[i+1] = pran();
-        stipples[i+2] = sran();
+class Stippler {
+    #initialized=false;
+
+    #renderer;
+    #stippleBuffer;
+
+    #stipples;
+    #stippleRange;
+    #stepThreshold;
+    #stepRemainingError;
+    #stippleScale;
+
+    #density;
+    #densityRange;
+
+    constructor(canvas) {
+        this.#renderer = new Renderer(canvas);
     }
-}
 
-let threshold = 0.4;
-function iterateStepStipples() {
-    d3surface.width = d3surface.clientWidth;
-    d3surface.height = d3surface.clientHeight;
+    initialize(density, stippleRange, stipplesAtStart=100) {
+        this.#stipples = new Array(stipplesAtStart);
+        this.#stippleRange = stippleRange;
+        this.#stippleRange.distance = stippleRange[1] - stippleRange[0];
+        this.#stepThreshold = 0.4;
+        this.#stepRemainingError = 1.0;
+        this.#stippleScale = 1.0;
 
-    //create voronoi
-    let points = Array(numStipples)
-        .fill()
-        .map((_, i) => ({
-            x: (stipples[i*3]*0.5+0.5)*d3surface.width,
-            y: (stipples[i*3+1]*0.5+0.5)*d3surface.height,
-            intensity: 0, //todo: rename?
-            weightedSumX: 0,
-            weightedSumY: 0,
-            radius: stipples[i*3+2]
+        this.#density = density;
+        this.#densityRange = [0, 0];
+        for(let x = 0; x < density.length; x++) {
+            for(let y = 0; y < density[x].length; y++) {
+                let val = density[x][y];
+                if(val < this.#densityRange[0]) this.#densityRange[0] = val;
+                if(val > this.#densityRange[1]) this.#densityRange[1] = val;
+            }
+        }
+        this.#densityRange.distance = this.#densityRange[1] - this.#densityRange[0];
 
-        }));
-    let delaunay = d3.Delaunay.from(
-        points,
-        (d) => d.x,
-        (d) => d.y
-    );
-    let voronoi = delaunay.voronoi([0, 0, d3surface.width, d3surface.height]);
+        const pran = d3.randomUniform(0, 1);
+        for(let i = 0; i < stipplesAtStart; i++) {
+            this.#stipples[i] = {
+                x: pran(),
+                y: pran(),
+                r: this.#stippleRange[0]
+            };
+        }
 
-    //get intensities for each voronoi cell
-    let cellStippleIndex = 0;
-    for(let x = 0; x < d3surface.width; x++) {
-        for(let y = 0; y < d3surface.height; y++) {
-            cellStippleIndex = delaunay.find(x, y, cellStippleIndex);
-            let cellStipple = points[cellStippleIndex];
+        this.#initialized = true;
+    }
 
-            let _x = Math.trunc((x/d3surface.width)*intensitiesSize[0]);
-            let _y = Math.trunc((y/d3surface.height)*intensitiesSize[1]);
-            let _intensityPos = (intensitiesSize[1]-1 -_y)*intensitiesSize[0] + _x;
+    /**
+     * samples a density from the density data provided during initialize
+     * @param x position in x-axis in range [0,1]
+     * @param y position in y-axis in range [0,1]
+     * @param invert result will be inverted
+     * @returns {number|*} density at specified position
+     */
+    #sampleDensityAt(x, y, invert=true) {
+        let densityX = Math.trunc(x * this.#density.length);
+        let densityY = Math.trunc(y * this.#density[0].length);
+        return invert
+            ? this.#densityRange[1] - this.#density[densityX][densityY]
+            : this.#density[densityX][densityY];
+    }
 
-            let intensityAtPos = 255.0 - intensities[_intensityPos];
-            cellStipple.intensity += intensityAtPos;
-            cellStipple.weightedSumX += x*intensityAtPos;
-            cellStipple.weightedSumY += y*intensityAtPos;
+    /**
+     * maps a density value to a radius according to their ranges
+     * @param density density value
+     * @returns {*} radius value
+     */
+    #densityToRadius(density) {
+        return (((density + this.#densityRange[0])
+            / this.#densityRange.distance)
+            * this.#stippleRange.distance)
+            + this.#stippleRange[0];
+    }
+
+    /**
+     * calculates the thresholds for delete and split operations based on the calculated radius.
+     * this assumes the max intensity on the area occupied by the stipple
+     * @param radius of the stipple
+     * @returns {number[]} an array: [delete threshold, split threshold]
+     */
+    #getDensityThreshold(radius) {
+        let area = Math.PI * radius * radius;
+        return [
+            ((1.0 - this.#stepThreshold / 2.0) * area) * this.#densityRange.distance,
+            ((1.0 + this.#stepThreshold / 2.0) * area) * this.#densityRange.distance
+        ];
+    }
+
+    step(updateBuffer=true) {
+        if(!this.#initialized) return;
+
+        let [width, height] = this.#renderer.getCanvasDimension();
+        width /= 2;
+        height /= 2;
+
+        //reset values and denormalize positions
+        for(let i = 0; i < this.#stipples.length; i++) {
+            this.#stipples[i].density = 0;
+            this.#stipples[i].weightedSumX = 0;
+            this.#stipples[i].weightedSumY = 0;
+
+            this.#stipples[i].x *= width;
+            this.#stipples[i].y *= height;
+        }
+
+        //create voronoi
+        let delaunay = d3.Delaunay.from(
+            this.#stipples,
+            (d) => d.x,
+            (d) => d.y
+        );
+        let voronoi = delaunay.voronoi([0, 0, width, height]);
+
+        //get density value for each voronoi cell
+        let cellStippleIndex = 0;
+        for(let x = 0; x < width; x++) {
+            for(let y = 0; y < height; y++) {
+                cellStippleIndex = delaunay.find(x, y, cellStippleIndex);
+                let cellStipple = this.#stipples[cellStippleIndex];
+
+                let sampledDensity = this.#sampleDensityAt(x/width, y/height);
+                cellStipple.density += sampledDensity;
+                cellStipple.weightedSumX += x*sampledDensity;
+                cellStipple.weightedSumY += y*sampledDensity;
+            }
+        }
+
+        //delete, split, move
+        let splits = [];
+        let moved = [];
+        let deleted = 0;
+        for(let i = 0; i < this.#stipples.length; i++) {
+            let polygon = voronoi.cellPolygon(i);
+            let cellStipple = this.#stipples[i];
+
+            //average intensity of stipple over its area
+            let area = Math.abs(d3.polygonArea(polygon)) || 1; //cant be 0
+            let avg_density = cellStipple.density / area;
+
+            //map density to a radius
+            let radius = this.#densityToRadius(avg_density);
+
+            //calculate thresholds
+            let [thDelete,thSplit] = this.#getDensityThreshold(radius);
+
+            if (cellStipple.density < thDelete) {
+                deleted++;
+            } else if (cellStipple.density > thSplit) {
+                //split
+                let cellCenter = d3.polygonCentroid(polygon);
+
+                let dist = Math.sqrt(area / Math.PI) / 2.0;
+                let deltaX = cellCenter[0] - cellStipple.x;
+                let deltaY = cellCenter[1] - cellStipple.y;
+                let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                deltaX /= vectorLength;
+                deltaY /= vectorLength;
+
+                splits.push({
+                    x: cellCenter[0] + dist * deltaX,
+                    y: cellCenter[1] + dist * deltaY,
+                    r: radius
+                });
+                splits.push({
+                    x: cellCenter[0] - dist * deltaX,
+                    y: cellCenter[1] - dist * deltaY,
+                    r: radius
+                });
+            } else {
+                //move
+                cellStipple.x = cellStipple.weightedSumX / cellStipple.density;
+                cellStipple.y = cellStipple.weightedSumY / cellStipple.density;
+                cellStipple.r = radius;
+                moved.push(cellStipple);
+            }
+        }
+
+        //adjust threshold and rebuild points
+        this.#stepThreshold += 0.01;
+        this.#stipples.length = moved.length + splits.length;
+        for(let i = 0; i < moved.length; i++) this.#stipples[i] = moved[i];
+        for(let i = 0; i < splits.length; i++) this.#stipples[i + moved.length] = splits[i];
+
+        //normalize stipple positions
+        for (let i = 0; i < this.#stipples.length; i++) {
+            this.#stipples[i].x /= width;
+            this.#stipples[i].y /= height;
+        }
+
+        this.#stepRemainingError = (deleted + splits.length) / (moved.length + splits.length + deleted);
+        if(updateBuffer) this.#updateStippleBuffer();
+    }
+
+    #updateStippleBuffer() {
+        this.#stippleBuffer = new Array(this.#stipples.length * 3); //x,y,size for each stipple
+        for (let i = 0; i < this.#stipples.length; i++) {
+            this.#stippleBuffer[i*3  ] = ((this.#stipples[i].x - 0.5) * 2);
+            this.#stippleBuffer[i*3+1] = ((this.#stipples[i].y - 0.5) * 2);
+            this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
         }
     }
 
-    //delete, split, move
-    let splits = [];
-    let moved = [];
-    let deleted = [];
-    for(let i = 0; i < points.length; i++) {
-        let polygon = voronoi.cellPolygon(i);
-        let cellStipple = points[i];
+    run(remainingError=0.05) {
+        if(!this.#initialized) return;
 
-        //average intensity of stipple over its area
-        let area = Math.abs(d3.polygonArea(polygon)) || 1; //cant be 0
-        let avg_intensity = cellStipple.intensity / area;
-
-        //map intensity to a radius
-        let radius = ((avg_intensity / 255.0) * (stippleSizeMax - stippleSizeMin)) + stippleSizeMin;
-
-        //calculate thresholds
-        let stippleArea = Math.PI * radius * radius;
-        let threshold_delete = (1.0 - threshold / 2.0) * stippleArea;
-        let threshold_split = (1.0 + threshold / 2.0) * stippleArea;
-
-        if (cellStipple.intensity < threshold_delete*255.0) {
-            //delete (by not doing anything with this)
-            deleted.push(cellStipple);
-        } else if (cellStipple.intensity > threshold_split*255.0) {
-            //split
-            let cellCenter = d3.polygonCentroid(polygon);
-
-            let dist = Math.sqrt(area / Math.PI) / 2.0; //act like poly is a circle and get half the radius
-            let deltaX = cellCenter[0] - cellStipple.x;
-            let deltaY = cellCenter[1] - cellStipple.y;
-            let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            deltaX /= vectorLength;
-            deltaY /= vectorLength;
-
-            let splitA = [];
-            splitA.x = cellCenter[0] + dist * deltaX;
-            splitA.y = cellCenter[1] + dist * deltaY;
-            splitA.radius = radius;
-            let splitB = [];
-            splitB.x = cellCenter[0] - dist * deltaX;
-            splitB.y = cellCenter[1] - dist * deltaY;
-            splitB.radius = radius;
-
-            splits.push(splitA);
-            splits.push(splitB);
-        } else {
-            //move
-            cellStipple.x = cellStipple.weightedSumX / cellStipple.intensity;
-            cellStipple.y = cellStipple.weightedSumY / cellStipple.intensity;
-            cellStipple.radius = radius;
-            moved.push(cellStipple);
+        while(this.#stepRemainingError > remainingError) { //todo: timeout for this?
+            this.step(false);
         }
+        this.#updateStippleBuffer();
     }
 
-    //adjust threshold and rebuild points
-    threshold += 0.01;
-    points.length = moved.length + splits.length;
-    for(let i = 0; i < moved.length; i++) points[i] = moved[i];
-    for(let i = 0; i < splits.length; i++) points[i + moved.length] = splits[i];
-
-    //rebuild stipples from it todo: think about something else, this is actually horrible
-    numStipples = points.length;
-    stipples = new Array(numStipples * 3); //x,y,size for each stipple
-    for (let i = 0; i < points.length; i++) {
-        stipples[i*3] = ((points[i].x / d3surface.width) - 0.5) * 2.0;
-        stipples[i*3+1] = ((points[i].y / d3surface.height) - 0.5) * 2.0;
-        stipples[i*3+2] = points[i].radius;
+    scaleAll(factor=1.0) {
+        if(!this.#initialized) return;
+        this.#stippleScale = factor;
+        this.#updateStippleBuffer();
     }
 
-    return (deleted.length + splits.length) < (moved.length + splits.length + deleted.length)*0.05;
-}
+    draw(voronoiLines=false) {
+        if(!this.#initialized) return;
 
-function redrawStipples() {
-    renderer.drawDots(stipples, true);
-    //renderer.drawVoronoi(stipples, false);
-}
-
-function scaleStipples() {
-    let scalingFactor = getScalingFactor();
-    for(let i = 0; i < numStipples * 3; i+=3) {
-        stipples[i+2] /= lastScalingFactor;
-        stipples[i+2] *= scalingFactor;
+        this.#renderer.drawDots(this.#stippleBuffer, true);
+        if(voronoiLines) this.#renderer.drawVoronoi(this.#stippleBuffer, false);
     }
-    lastScalingFactor = scalingFactor;
+
 }
 
-//render dots via WebGL
-//shaders are on the main page in script tags (syntax highlighting, yey)
-class Renderer { //todo: stippling data object as a class, to streamline any buffer indices and so on
+class Renderer {
     #canvas;
     #gl;
     #shaderDots;
@@ -329,6 +399,11 @@ class Renderer { //todo: stippling data object as a class, to streamline any buf
 
         //clean finish
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
+    }
+
+    getCanvasDimension() {
+        this.#fixCanvas();
+        return [this.#canvas.width, this.#canvas.height];
     }
 
     #init_shader() {
@@ -406,6 +481,7 @@ class Renderer { //todo: stippling data object as a class, to streamline any buf
 
         return lines;
     }
+
 }
 
 //----------------------------------------------------------------------------------------------------------------------

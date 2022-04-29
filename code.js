@@ -85,7 +85,7 @@ function processImage(fileEvent) {
 
                 density[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
             }
-            stippler.initialize(density, [0.1, 5]); //todo: use something from the UI for this?
+            stippler.initialize(density, [0.1, 3]); //todo: use something from the UI for this?
             stippler.run();
             stippler.draw();
         }
@@ -189,9 +189,7 @@ class Stippler {
     step(updateBuffer=true) {
         if(!this.#initialized) return;
 
-        let [width, height] = this.#renderer.getCanvasDimension();
-        width /= 2;
-        height /= 2;
+        let [width, height] = this.#renderer.getCanvasDimension(); //can be scaled for performance/quality
 
         //reset values and denormalize positions
         for(let i = 0; i < this.#stipples.length; i++) {

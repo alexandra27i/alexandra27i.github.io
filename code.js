@@ -2,11 +2,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 let stippler;
+
+/**
+ * called on body onload
+ */
 function init() {
     stippler = new Stippler(document.getElementById('d3surface'));
 
 
-    document.getElementById('iUploadImage').addEventListener('change', processImage);
+    document.getElementById('iUploadImage').addEventListener('change', acceptImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
     window.addEventListener('resize', windowResized);
 
@@ -23,15 +27,27 @@ function init() {
 //region UI
 //----------------------------------------------------------------------------------------------------------------------
 
-//reroute the button click to the actual file dialog
-function acceptFile() {
-    //why?
-    //the normal file button is ugly, and styling it is not supported up until recently
-    //it is solved that way for the sake of backward compatibility
-    document.getElementById('iUploadImage').click();
+/**
+ * reads an uploaded file and moves it on to processing
+ * @param fileEvent
+ */
+function acceptImage(fileEvent) {
+    if(!fileEvent.target.files[0]) return;
+
+    let reader = new FileReader();
+    reader.onload = function(readerEvent) {
+        let img = new Image();
+        img.onload = function() {
+            processImage(img);
+        }
+        img.src = readerEvent.target.result;
+    }
+    reader.readAsDataURL(fileEvent.target.files[0]);
 }
 
-//adds color to the left and right side of the sliders thumb (visual sugar, nothing more)
+/**
+ * adds color to the left and right side of the sliders thumb (visual sugar, nothing more)
+ */
 function adjustRangeVisuals() {
     var value = (this.value-this.min)/(this.max-this.min)*100;
     this.style.background = 'linear-gradient(' +
@@ -42,6 +58,9 @@ function adjustRangeVisuals() {
     ;
 }
 
+/**
+ * manages global scaling
+ */
 function dotsizeChanged() {
     let factor = document.getElementById("iDotSize").value/100.0;
 
@@ -49,8 +68,11 @@ function dotsizeChanged() {
     stippler.draw();
 }
 
+/**
+ * placeholder for any actions taken on window resize
+ */
 function windowResized() {
-    stippler.draw();
+
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -59,42 +81,43 @@ function windowResized() {
 //region Stippling
 //----------------------------------------------------------------------------------------------------------------------
 
-//called on image upload
-//converts image to intensities and initializes stippling
-function processImage(fileEvent) {
-    if(!fileEvent.target.files[0]) return;
+//todo: these are just here for quick access, we might wanna make them available via UI
+//      colors for the rest of the page are in the .css: :root
+const STIPPLING_RANGE = [0.1, 3];
+const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
+const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
 
+/**
+ * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
+ * @param img uploaded image
+ */
+function processImage(img) {
     let ca = document.createElement("canvas");
     let co = ca.getContext("2d");
 
-    let reader = new FileReader();
-    reader.onload = function(readerEvent) {
-        let img = new Image();
-        img.onload = function() {
-            ca.width = img.width;
-            ca.height = img.height;
-            co.drawImage(img, 0, 0);
+    ca.width = img.width;
+    ca.height = img.height;
+    co.drawImage(img, 0, 0);
 
-            let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
+    let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
 
-            //grayscales
-            let density = Array.from(Array(ca.width), () => new Array(ca.height));
-            for(let i = 0; i < subpixels.length; i+=4) {
-                let y = Math.trunc((i/4) / ca.width);
-                let x = (i/4) - y * ca.width;
+    //grayscale
+    let density = Array.from(Array(ca.width), () => new Array(ca.height));
+    for(let i = 0; i < subpixels.length; i+=4) {
+        let y = Math.trunc((i/4) / ca.width);
+        let x = (i/4) - y * ca.width;
 
-                density[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3.0;
-            }
-            stippler.initialize(density, [0.1, 3]); //todo: use something from the UI for this?
-            stippler.run();
-            stippler.draw();
-        }
-        img.src = readerEvent.target.result;
+        density[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3; //flip y
     }
-    reader.readAsDataURL(fileEvent.target.files[0]);
+    stippler.initialize(density, STIPPLING_RANGE);
+    stippler.run();
+    stippler.draw();
 }
 
-
+/**
+ * Provides the stippling algorithm.
+ * use in the following order: Initialize -> Run/Step -> Draw
+ */
 class Stippler {
     #initialized=false;
 
@@ -110,10 +133,21 @@ class Stippler {
     #density;
     #densityRange;
 
+    /**
+     * Stippler constructor
+     * @param canvas used for the WebGL context to draw to
+     */
     constructor(canvas) {
         this.#renderer = new Renderer(canvas);
     }
 
+    /**
+     * Initializes the stippling algorithm with a specified density and resets all parameters. This needs to be
+     * called before running the stippling algorithm.
+     * @param density 2D array of density values
+     * @param stippleRange range for stipple radius: [min, max]
+     * @param stipplesAtStart optional, defines the number of random stipples at the start
+     */
     initialize(density, stippleRange, stipplesAtStart=100) {
         this.#stipples = new Array(stipplesAtStart);
         this.#stippleRange = stippleRange;
@@ -186,6 +220,10 @@ class Stippler {
         ];
     }
 
+    /**
+     * executes one iteration of the stippling algorithm
+     * @param updateBuffer if true, the WebGL buffer is updated after the iteration
+     */
     step(updateBuffer=true) {
         if(!this.#initialized) return;
 
@@ -289,6 +327,9 @@ class Stippler {
         if(updateBuffer) this.#updateStippleBuffer();
     }
 
+    /**
+     * Updates the buffer used for WebGL rendering, containing all the data necessary in the shaders
+     */
     #updateStippleBuffer() {
         this.#stippleBuffer = new Array(this.#stipples.length * 3); //x,y,size for each stipple
         for (let i = 0; i < this.#stipples.length; i++) {
@@ -298,21 +339,33 @@ class Stippler {
         }
     }
 
+    /**
+     * executes the stippling algorithm up to the specified remaining error
+     * @param remainingError ratio of cells that are still split up or deleted in range [0, 1]
+     */
     run(remainingError=0.05) {
         if(!this.#initialized) return;
 
-        while(this.#stepRemainingError > remainingError) { //todo: timeout for this?
+        while(this.#stepRemainingError > remainingError) {
             this.step(false);
         }
         this.#updateStippleBuffer();
     }
 
+    /**
+     * adjusts the scaling factor and updates the render buffer data
+     * @param factor constant scaling factor for all stipples
+     */
     scaleAll(factor=1.0) {
         if(!this.#initialized) return;
         this.#stippleScale = factor;
         this.#updateStippleBuffer();
     }
 
+    /**
+     * draw all stipples on the canvas provided during object creation
+     * @param voronoiLines if true, voronoi cells are rendered as well
+     */
     draw(voronoiLines=false) {
         if(!this.#initialized) return;
 
@@ -322,6 +375,9 @@ class Stippler {
 
 }
 
+/**
+ * Provides WebGL rendering functionality
+ */
 class Renderer {
     #canvas;
     #gl;
@@ -333,6 +389,10 @@ class Renderer {
     clear = [0.5, 0.5, 0.5];
     color = [0.2, 0.2, 0.2];
 
+    /**
+     * constructor of Renderer
+     * @param canvas used for the WebGL context to draw to
+     */
     constructor(canvas) {
         this.#canvas = canvas;
         this.#gl = canvas.getContext(
@@ -340,9 +400,20 @@ class Renderer {
             {antialias: false, alpha: true, preserveDrawingBuffer: true}
         );
         this.#init_shader();
-        this.#init_buffers();
+
+        //init buffers
+        this.#vboDots = this.#gl.createBuffer();
+        this.#vboLines = this.#gl.createBuffer();
+
+        this.clear = COLOR_WEBGL_BACK;
+        this.color = COLOR_WEBGL_FRONT;
     }
 
+    /**
+     * drawing dots to the WebGL context specified
+     * @param data float buffer with stride 3: x,y,radius
+     * @param clearBefore if false, no clear is called and already rendered content remains
+     */
     drawDots(data, clearBefore = true) {
         this.#fixCanvas();
         this.#gl.useProgram(this.#shaderDots);
@@ -375,82 +446,15 @@ class Renderer {
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
     }
 
-    drawVoronoi(data, clearBefore = true) { //todo: dont create voronoi here - we need it outside too
-        this.#fixCanvas();
-        let lines = this.#generateVoronoi(data);
-        this.#gl.useProgram(this.#shaderLines);
-
-        //buffers
-        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboLines);
-        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(lines), this.#gl.STATIC_DRAW);
-        let aPos = this.#gl.getAttribLocation(this.#shaderLines, "aPos");
-        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 0, 0);
-        this.#gl.enableVertexAttribArray(aPos);
-
-        //uniforms
-        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderLines,
-            "line_color"), this.color);
-
-        //draw
-        this.#prepareDrawing(clearBefore);
-        this.#gl.drawArrays(this.#gl.LINES, 0, lines.length/2);
-
-        //clean finish
-        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
-    }
-
-    getCanvasDimension() {
-        this.#fixCanvas();
-        return [this.#canvas.width, this.#canvas.height];
-    }
-
-    #init_shader() {
-        //dots shader
-        let dotvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
-        this.#gl.shaderSource(dotvs, document.getElementById("dots-vs").innerHTML);
-        this.#gl.compileShader(dotvs);
-        let dotfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
-        this.#gl.shaderSource(dotfs, document.getElementById("dots-fs").innerHTML);
-        this.#gl.compileShader(dotfs);
-        this.#shaderDots = this.#gl.createProgram();
-        this.#gl.attachShader(this.#shaderDots, dotvs);
-        this.#gl.attachShader(this.#shaderDots, dotfs);
-        this.#gl.linkProgram(this.#shaderDots);
-
-        //lines shader
-        let linesvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
-        this.#gl.shaderSource(linesvs, document.getElementById("lines-vs").innerHTML);
-        this.#gl.compileShader(linesvs);
-        let linesfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
-        this.#gl.shaderSource(linesfs, document.getElementById("lines-fs").innerHTML);
-        this.#gl.compileShader(linesfs);
-        this.#shaderLines = this.#gl.createProgram();
-        this.#gl.attachShader(this.#shaderLines, linesvs);
-        this.#gl.attachShader(this.#shaderLines, linesfs);
-        this.#gl.linkProgram(this.#shaderLines);
-    }
-
-    #init_buffers() {
-        this.#vboDots = this.#gl.createBuffer();
-        this.#vboLines = this.#gl.createBuffer();
-    }
-
-    #fixCanvas() {
-        this.#canvas.width = this.#canvas.clientWidth;
-        this.#canvas.height = this.#canvas.clientHeight;
-    }
-
-    #prepareDrawing(clearBefore) {
-        this.#gl.enable(this.#gl.BLEND);
-        this.#gl.blendFunc(this.#gl.SRC_ALPHA, this.#gl.ONE_MINUS_SRC_ALPHA);
-        if(clearBefore) {
-            this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
-            this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
-        }
-        this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
-    }
-
-    #generateVoronoi(data) {
+    /**
+     * drawing voronoi cells to the WebGL context specified.
+     * the voronoi cells are generated in this function, which is not as performant as it could be.
+     * this function is supposed to be used for debugging purposes only.
+     * @param data float buffer with stride 3: x,y,radius
+     * @param clearBefore if false, no clear is called and already rendered content remains
+     */
+    drawVoronoi(data, clearBefore = true) {
+        //generate voronoi
         let points = Array(numStipples)
             .fill()
             .map((_, i) => ({
@@ -477,7 +481,87 @@ class Renderer {
             lines[i*4+3] = parseFloat(p2[1]);
         }
 
-        return lines;
+        //init
+        this.#fixCanvas();
+        this.#gl.useProgram(this.#shaderLines);
+
+        //buffers
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboLines);
+        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(lines), this.#gl.STATIC_DRAW);
+        let aPos = this.#gl.getAttribLocation(this.#shaderLines, "aPos");
+        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 0, 0);
+        this.#gl.enableVertexAttribArray(aPos);
+
+        //uniforms
+        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderLines,
+            "line_color"), this.color);
+
+        //draw
+        this.#prepareDrawing(clearBefore);
+        this.#gl.drawArrays(this.#gl.LINES, 0, lines.length/2);
+
+        //clean finish
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);
+    }
+
+    /**
+     * Fixes the actual width and height of the canvas and returns it
+     * @returns {*[]} actual width and height of the used canvas
+     */
+    getCanvasDimension() {
+        this.#fixCanvas();
+        return [this.#canvas.width, this.#canvas.height];
+    }
+
+    /**
+     * Compiles shaders based on the code found on the html page
+     */
+    #init_shader() {
+        //dots shader
+        let dotvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
+        this.#gl.shaderSource(dotvs, document.getElementById("dots-vs").innerHTML);
+        this.#gl.compileShader(dotvs);
+        let dotfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
+        this.#gl.shaderSource(dotfs, document.getElementById("dots-fs").innerHTML);
+        this.#gl.compileShader(dotfs);
+        this.#shaderDots = this.#gl.createProgram();
+        this.#gl.attachShader(this.#shaderDots, dotvs);
+        this.#gl.attachShader(this.#shaderDots, dotfs);
+        this.#gl.linkProgram(this.#shaderDots);
+
+        //lines shader
+        let linesvs = this.#gl.createShader(this.#gl.VERTEX_SHADER);
+        this.#gl.shaderSource(linesvs, document.getElementById("lines-vs").innerHTML);
+        this.#gl.compileShader(linesvs);
+        let linesfs = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
+        this.#gl.shaderSource(linesfs, document.getElementById("lines-fs").innerHTML);
+        this.#gl.compileShader(linesfs);
+        this.#shaderLines = this.#gl.createProgram();
+        this.#gl.attachShader(this.#shaderLines, linesvs);
+        this.#gl.attachShader(this.#shaderLines, linesfs);
+        this.#gl.linkProgram(this.#shaderLines);
+    }
+
+    /**
+     * fixes the actual width and height values of the canvas
+     */
+    #fixCanvas() {
+        this.#canvas.width = this.#canvas.clientWidth;
+        this.#canvas.height = this.#canvas.clientHeight;
+    }
+
+    /**
+     * general draw functions called before drawing
+     * @param clearBefore if false, no clear is called and already rendered content remains
+     */
+    #prepareDrawing(clearBefore) {
+        this.#gl.enable(this.#gl.BLEND);
+        this.#gl.blendFunc(this.#gl.SRC_ALPHA, this.#gl.ONE_MINUS_SRC_ALPHA);
+        if(clearBefore) {
+            this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
+            this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
+        }
+        this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
     }
 
 }

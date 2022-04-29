@@ -76,7 +76,7 @@
                 <h3 class="centered">Settings</h3>
             </div>
             <div>
-                <input type="button" value="Upload" onclick="acceptFile()" />
+                <input type="button" value="Upload" onclick="document.getElementById('iUploadImage').click();" />
                 <input type="file" style="display:none;" id="iUploadImage"/>
             </div>
             <div>
@@ -88,7 +88,7 @@
                 <label for="iDotSize">dot size</label>
             </div>
             <div>
-                <input type="button" value="Stippling Step" onclick="stippler.step();stippler.draw();" />
+                <input type="button" value="Stippling Step (DEBUG)" onclick="stippler.step();stippler.draw();" />
             </div>
             <div>
                 <p class="centered">more settings ...</p>

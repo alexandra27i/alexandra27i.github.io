@@ -83,6 +83,7 @@ function windowResized() {
 
 //todo: these are just here for quick access, we might wanna make them available via UI
 //      colors for the rest of the page are in the .css: :root
+//      I think we should do the stippling threaded to keep the UI responsive
 const STIPPLING_RANGE = [0.1, 3];
 const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
 const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
@@ -359,7 +360,10 @@ class Stippler {
     scaleAll(factor=1.0) {
         if(!this.#initialized) return;
         this.#stippleScale = factor;
-        this.#updateStippleBuffer();
+
+        for (let i = 0; i < this.#stipples.length; i++) {
+            this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
+        }
     }
 
     /**

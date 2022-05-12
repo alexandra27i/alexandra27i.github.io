@@ -9,9 +9,11 @@ let stippler;
 function init() {
     stippler = new Stippler(document.getElementById('d3surface'));
 
+    let mB = false;
 
     document.getElementById('iUploadImage').addEventListener('change', acceptImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
+    // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
     window.addEventListener('resize', windowResized);
 
     var elements = document.getElementsByClassName("reactive_range");
@@ -75,6 +77,10 @@ function windowResized() {
 
 }
 
+function machBandingChanged() {
+    stippler.machBandingChanged();
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 //endregion
 
@@ -134,6 +140,13 @@ class Stippler {
     #density;
     #densityRange;
 
+    #mb;
+    #mbDensity;
+    #mbWeight;
+    #mbContourSteps;
+    #mbContourMap;
+    #mbGaussianSize;                // yielded good results when close to stipple
+
     /**
      * Stippler constructor
      * @param canvas used for the WebGL context to draw to
@@ -177,6 +190,36 @@ class Stippler {
             };
         }
 
+        //#mbDensity;
+        //#mbWeight;
+        //#mbContourSteps;
+        //#mbGaussianSize;                // yielded good results when close to stipple
+
+        this.#mbContourSteps = 5;       // obsolete for now
+        this.#mbContourMap = density;
+
+        this.#mb = false;
+
+
+        for(let x = 0; x < density.length; x++) {
+            for(let y = 0; y < density[x].length; y++) {
+                let val = density[x][y];
+
+                if (val < this.#densityRange[1]/5)
+                    this.#mbContourMap[x][y] = 0;
+                else if (val < this.#densityRange[1]*2/5 && val >= this.#densityRange[1]/5)
+                    this.#mbContourMap[x][y] = 63;
+                else if (val < this.#densityRange[1]*3/5 && val >= this.#densityRange[1]*2/5)
+                    this.#mbContourMap[x][y] = 127;
+                else if (val < this.#densityRange[1]*4/5 && val >= this.#densityRange[1]*3/5)
+                    this.#mbContourMap[x][y] = 191;
+                else {
+                    this.#mbContourMap[x][y] = 254;
+                }
+            }
+        }
+
+
         this.#initialized = true;
     }
 
@@ -190,9 +233,17 @@ class Stippler {
     #sampleDensityAt(x, y, invert=true) {
         let densityX = Math.trunc(x * this.#density.length);
         let densityY = Math.trunc(y * this.#density[0].length);
-        return invert
-            ? this.#densityRange[1] - this.#density[densityX][densityY]
-            : this.#density[densityX][densityY];
+        /*
+        if (this.#mb === false) { //TODO: switch back
+            return invert
+                ? this.#densityRange[1] - this.#density[densityX][densityY]
+                : this.#density[densityX][densityY];
+        } else {
+         */
+            return invert
+                ? this.#densityRange[1] - this.#mbContourMap[densityX][densityY]
+                : this.#mbContourMap[densityX][densityY];  //TODO: switch back to mbDensity
+        //}
     }
 
     /**
@@ -364,6 +415,10 @@ class Stippler {
         for (let i = 0; i < this.#stipples.length; i++) {
             this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
         }
+    }
+
+    machBandingChanged() {
+        this.#mb = !this.#mb;
     }
 
     /**

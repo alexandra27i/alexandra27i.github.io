@@ -145,6 +145,8 @@ class Stippler {
     #mbWeight;
     #mbContourSteps;
     #mbContourMap;
+    #mbLowPassFiltered;
+    #mbHighPassFiltered;
     #mbGaussianSize;                // yielded good results when close to stipple
 
     /**
@@ -194,17 +196,20 @@ class Stippler {
         //#mbWeight;
         //#mbContourSteps;
         //#mbGaussianSize;                // yielded good results when close to stipple
+        //#mbLowPassFiltered;
 
         this.#mbContourSteps = 5;       // obsolete for now
         this.#mbContourMap = density;
+        this.#mbDensity = density;
+        this.#mbLowPassFiltered = density;
+        this.#mbHighPassFiltered = density;
 
-        this.#mb = false;
+        this.#mb = false;   //TODO: make this variable work
 
-
+        //initializing the contour map for restricted stippling
         for(let x = 0; x < density.length; x++) {
             for(let y = 0; y < density[x].length; y++) {
                 let val = density[x][y];
-
                 if (val < this.#densityRange[1]/5)
                     this.#mbContourMap[x][y] = 0;
                 else if (val < this.#densityRange[1]*2/5 && val >= this.#densityRange[1]/5)
@@ -219,6 +224,37 @@ class Stippler {
             }
         }
 
+        // this.#mbLowPassFiltered = blur(this.#mbContourMap).radius(10);
+
+        for(let x = 0; x < this.#mbLowPassFiltered.length; x++) {
+            for (let y = 0; y < this.#mbLowPassFiltered[x].length; y++) {
+                this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y];
+            }
+        }
+
+        /*
+                for(let x = 0; x < this.#mbContourMap.length; x++) {
+                    for (let y = 0; y < this.#mbContourMap[x].length; y++) {
+                        let val = this.#mbContourMap[x][y];
+                        if (x-2 >= 0 && y-2 >= 0 && x+2 < density.length && y+2 < density[x].length) {
+                            this.#mbLowPassFiltered[x][y] = 1 / 273 * (
+                                (this.#mbContourMap[x - 2][y - 2] + this.#mbContourMap[x + 2][y - 2] + this.#mbContourMap[x - 2][y + 2] + this.#mbContourMap[x + 2][y + 2]) * 1
+                                + (this.#mbContourMap[x - 1][y - 2] + this.#mbContourMap[x + 1][y - 2] + this.#mbContourMap[x - 1][y + 2] + this.#mbContourMap[x + 1][y + 2]) * 4
+                                + (this.#mbContourMap[x - 2][y - 1] + this.#mbContourMap[x + 2][y - 1] + this.#mbContourMap[x - 2][y + 1] + this.#mbContourMap[x + 2][y + 1]) * 4
+                                + (this.#mbContourMap[x][y - 2] + this.#mbContourMap[x + 2][y] + this.#mbContourMap[x][y + 2] + this.#mbContourMap[x - 2][y]) * 7
+                                + (this.#mbContourMap[x - 1][y - 1] + this.#mbContourMap[x + 1][y - 1] + this.#mbContourMap[x - 1][y + 1] + this.#mbContourMap[x + 1][y + 1]) * 16
+                                + (this.#mbContourMap[x][y - 1] + this.#mbContourMap[x + 1][y] + this.#mbContourMap[x - 1][y] + this.#mbContourMap[x][y + 1]) * 26
+                                + val * 41
+                            );
+                        } else {
+                            this.#mbLowPassFiltered[x][y] = val;
+                        }
+                        this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y];
+                    }
+                }
+                 */
+
+        //TODO: mbDensity auf 0..255
 
         this.#initialized = true;
     }
@@ -241,8 +277,8 @@ class Stippler {
         } else {
          */
             return invert
-                ? this.#densityRange[1] - this.#mbContourMap[densityX][densityY]
-                : this.#mbContourMap[densityX][densityY];  //TODO: switch back to mbDensity
+                ? this.#densityRange[1] - this.#mbHighPassFiltered[densityX][densityY]
+                : this.#mbHighPassFiltered[densityX][densityY];  //TODO: switch back to mbDensity
         //}
     }
 

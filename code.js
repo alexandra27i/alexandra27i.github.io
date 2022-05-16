@@ -199,10 +199,11 @@ class Stippler {
         //#mbLowPassFiltered;
 
         this.#mbContourSteps = 5;       // obsolete for now
-        this.#mbContourMap = density;
-        this.#mbDensity = density;
-        this.#mbLowPassFiltered = density;
-        this.#mbHighPassFiltered = density;
+        this.#mbWeight = 1; //denoted [0,1] unclear how relevant in 0..255 scale
+        this.#mbContourMap = JSON.parse(JSON.stringify(density));
+        this.#mbDensity = JSON.parse(JSON.stringify(density));
+        this.#mbLowPassFiltered = JSON.parse(JSON.stringify(density));
+        this.#mbHighPassFiltered = JSON.parse(JSON.stringify(density));
 
         this.#mb = false;   //TODO: make this variable work
 
@@ -224,39 +225,59 @@ class Stippler {
             }
         }
 
-        // this.#mbLowPassFiltered = blur(this.#mbContourMap).radius(10);
+        console.log("density");
+        console.log(density[0]);
 
-        for(let x = 0; x < this.#mbLowPassFiltered.length; x++) {
-            for (let y = 0; y < this.#mbLowPassFiltered[x].length; y++) {
-                this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y];
+        const B = d3.blur();
+        let cmap = Array.from(this.#mbContourMap);
+        let lpf_flat = Array.from(B.width(density[0].length)(cmap.flat()));
+
+        let i = 0;
+        for(let x = 0; x < density.length; x++) {
+            for(let y = 0; y < density[x].length; y++) {
+                this.#mbLowPassFiltered[x][y] = lpf_flat[i++];
             }
         }
 
-        /*
-                for(let x = 0; x < this.#mbContourMap.length; x++) {
-                    for (let y = 0; y < this.#mbContourMap[x].length; y++) {
-                        let val = this.#mbContourMap[x][y];
-                        if (x-2 >= 0 && y-2 >= 0 && x+2 < density.length && y+2 < density[x].length) {
-                            this.#mbLowPassFiltered[x][y] = 1 / 273 * (
-                                (this.#mbContourMap[x - 2][y - 2] + this.#mbContourMap[x + 2][y - 2] + this.#mbContourMap[x - 2][y + 2] + this.#mbContourMap[x + 2][y + 2]) * 1
-                                + (this.#mbContourMap[x - 1][y - 2] + this.#mbContourMap[x + 1][y - 2] + this.#mbContourMap[x - 1][y + 2] + this.#mbContourMap[x + 1][y + 2]) * 4
-                                + (this.#mbContourMap[x - 2][y - 1] + this.#mbContourMap[x + 2][y - 1] + this.#mbContourMap[x - 2][y + 1] + this.#mbContourMap[x + 2][y + 1]) * 4
-                                + (this.#mbContourMap[x][y - 2] + this.#mbContourMap[x + 2][y] + this.#mbContourMap[x][y + 2] + this.#mbContourMap[x - 2][y]) * 7
-                                + (this.#mbContourMap[x - 1][y - 1] + this.#mbContourMap[x + 1][y - 1] + this.#mbContourMap[x - 1][y + 1] + this.#mbContourMap[x + 1][y + 1]) * 16
-                                + (this.#mbContourMap[x][y - 1] + this.#mbContourMap[x + 1][y] + this.#mbContourMap[x - 1][y] + this.#mbContourMap[x][y + 1]) * 26
-                                + val * 41
-                            );
-                        } else {
-                            this.#mbLowPassFiltered[x][y] = val;
-                        }
-                        this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y];
-                    }
-                }
-                 */
+        console.log("mbLowPassFiltered")
+        console.log(this.#mbLowPassFiltered[0]);
 
-        //TODO: mbDensity auf 0..255
+        //this.#mbLowPassFiltered = blur().radius(2)(this.#mbContourMap);
+
+        for(let x = 0; x < this.#mbLowPassFiltered.length; x++) {
+            for (let y = 0; y < this.#mbLowPassFiltered[x].length; y++) {
+                this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y] + 127;
+            }
+        }
+
+        console.log("mbHighPassFiltered");
+        console.log(this.#mbHighPassFiltered[0]);
+
+        for(let x = 0; x < this.#mbHighPassFiltered.length; x++) {
+            for (let y = 0; y < this.#mbHighPassFiltered[x].length; y++) {
+                if (this.#mbHighPassFiltered[x][y]>0) {
+                    this.#mbDensity[x][y] = this.#clamp(density[x][y] + 2*this.#mbWeight * (this.#mbHighPassFiltered[x][y]-127),0, 255);
+                } else {
+                    this.#mbDensity[x][y] = this.#clamp(density[x][y] + 2*this.#mbWeight * (this.#mbHighPassFiltered[x][y]-255),0, 255);
+                }
+            }
+        }
+
+        console.log("mbDensity");
+        console.log(this.#mbDensity[0]);
 
         this.#initialized = true;
+    }
+
+    /**
+     * //TODO
+     * @param value
+     * @param min
+     * @param max
+     * @returns {number}
+     */
+    #clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
     }
 
     /**
@@ -276,9 +297,10 @@ class Stippler {
                 : this.#density[densityX][densityY];
         } else {
          */
+        //TODO: add switches for different outputs
             return invert
-                ? this.#densityRange[1] - this.#mbHighPassFiltered[densityX][densityY]
-                : this.#mbHighPassFiltered[densityX][densityY];  //TODO: switch back to mbDensity
+                ? this.#densityRange[1] - this.#mbDensity[densityX][densityY]
+                : this.#mbDensity[densityX][densityY];
         //}
     }
 

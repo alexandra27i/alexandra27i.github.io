@@ -9,8 +9,6 @@ let stippler;
 function init() {
     stippler = new Stippler(document.getElementById('d3surface'));
 
-    let mB = false;
-
     document.getElementById('iUploadImage').addEventListener('change', acceptImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
     // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
@@ -70,6 +68,8 @@ function dotsizeChanged() {
     stippler.draw();
 }
 
+//TODO: add live adjustable render settings
+
 /**
  * placeholder for any actions taken on window resize
  */
@@ -77,9 +77,6 @@ function windowResized() {
 
 }
 
-function machBandingChanged() {
-    stippler.machBandingChanged();
-}
 
 //----------------------------------------------------------------------------------------------------------------------
 //endregion
@@ -199,14 +196,16 @@ class Stippler {
         //#mbGaussianSize;                // yielded good results when close to stipple
         //#mbLowPassFiltered;
 
-        this.#mbContourSteps = 5;       // obsolete for now
+        this.#mbContourSteps = 5;        // TODO: obsolete for now, make variable
         this.#mbWeight = 1; //denoted [0,1]
         this.#mbContourMap = JSON.parse(JSON.stringify(density));
         this.#mbDensity = JSON.parse(JSON.stringify(density));
         this.#mbLowPassFiltered = JSON.parse(JSON.stringify(density));
         this.#mbHighPassFiltered = JSON.parse(JSON.stringify(density));
 
-        this.#stipplingStyle = 0;   //TODO: make this variable work / turn into number
+        this.#stipplingStyle = 0;  // 1 = restricted, 2 = machBanding, 0 or anything else = regular stippling
+
+        // TODO: replace loops with maps
 
         //initializing the contour map for restricted stippling
         for(let x = 0; x < density.length; x++) {
@@ -226,13 +225,12 @@ class Stippler {
             }
         }
 
-        console.log("density");
-        console.log(density[0]);
-
+        // blur input image
         const B = d3.blur();
         let cmap = Array.from(this.#mbContourMap);
         let lpf_flat = Array.from(B.width(density[0].length)(cmap.flat()));
 
+        // convert into workable density array
         let i = 0;
         for(let x = 0; x < density.length; x++) {
             for(let y = 0; y < density[x].length; y++) {
@@ -240,20 +238,14 @@ class Stippler {
             }
         }
 
-        console.log("mbLowPassFiltered")
-        console.log(this.#mbLowPassFiltered[0]);
-
-        //this.#mbLowPassFiltered = blur().radius(2)(this.#mbContourMap);
-
+        // create high pass filtered array
         for(let x = 0; x < this.#mbLowPassFiltered.length; x++) {
             for (let y = 0; y < this.#mbLowPassFiltered[x].length; y++) {
                 this.#mbHighPassFiltered[x][y] = this.#mbContourMap[x][y] - this.#mbLowPassFiltered[x][y] + 127;
             }
         }
 
-        console.log("mbHighPassFiltered");
-        console.log(this.#mbHighPassFiltered[0]);
-
+        // initalize density' functon for machBanding
         for(let x = 0; x < this.#mbHighPassFiltered.length; x++) {
             for (let y = 0; y < this.#mbHighPassFiltered[x].length; y++) {
                 if (this.#mbHighPassFiltered[x][y]>0) {
@@ -264,18 +256,15 @@ class Stippler {
             }
         }
 
-        console.log("mbDensity");
-        console.log(this.#mbDensity[0]);
-
         this.#initialized = true;
     }
 
     /**
-     * //TODO
-     * @param value
-     * @param min
-     * @param max
-     * @returns {number}
+     * clamps input value
+     * @param value number to clamp
+     * @param min lowest possible output number
+     * @param max highest possible output number
+     * @returns {number} number if in min max range, else: min or max (dependng on if it's higher or lower than range)
      */
     #clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -478,6 +467,10 @@ class Stippler {
         }
     }
 
+    /**
+     * adjusts the stippling style
+     * @param style 1..restricted, 2..machBanding, else or 0..regular stipplng
+     */
     styleChanged(style = 0) {
         this.#stipplingStyle = style;
     }

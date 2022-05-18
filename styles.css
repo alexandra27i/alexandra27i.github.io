@@ -10,6 +10,8 @@
     --color_foreground: whitesmoke;
     --color_background: dimgray;
     --color_accent: aqua;
+    --color_secondary: MediumTurquoise;
+    --color_greyed: silver;
 }
 
 html,
@@ -57,6 +59,16 @@ a {
 
 .centered {
     text-align: center;
+}
+
+.centerContent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.greyed {
+    color: var(--color_greyed);
 }
 
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -113,19 +125,21 @@ a {
 }
 
 .ui > div > input[type="button"] {
-    width: 100%;
-    border: 0 solid var(--color_foreground);
+    width: 50%;
+    border: 1px solid var(--color_foreground);
     border-radius: 0.2em;
     padding: 0.2em;
     background: var(--color_background);
-    color: var(--color_foreground);
+    color: var(--color_accent);
     transition: 0.5s;
+    font-size: 1.2em;
+    margin: auto;
 }
 
 .ui > div > input[type="button"]:hover {
-    background: var(--color_background);
-    color: var(--color_accent);
-    border: 0 solid var(--color_accent);
+    background: var(--color_secondary);
+    color: var(--color_foreground);
+    border: 1px solid var(--color_secondary);
     cursor: pointer;
 }
 

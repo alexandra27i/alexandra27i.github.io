@@ -73,41 +73,60 @@
 
     <div class="app">
         <div class="ui">
-            <div>
-                <h3 class="centered">Settings</h3>
-            </div>
-            <div>
+            <div class="centerContent">
                 <input type="button" value="Upload" onclick="document.getElementById('iUploadImage').click();" />
                 <input type="file" style="display:none;" id="iUploadImage"/>
             </div>
             <div>
-                <input type="checkbox" id="iMachbanding" onchange="machBandingChanged()"/>
-                <label for="iMachbanding">machbanding</label>
+                <h3 class="centered">Render Settings</h3>
             </div>
             <div>
                 <input class="reactive_range" type="range" id="iDotSize" min="0" max="300" value="100">
                 <label for="iDotSize">dot size</label>
             </div>
-            <div>
-                <input type="button" value="Stippling Step (DEBUG)" onclick="stippler.step();stippler.draw();" />
+            <div class="greyed">
+                <label for="iShape">Shape:</label>
+                <select name="shape" id="iShape">
+                    <option value="circle">Circle</option>
+                    <option value="square">Square</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="star">Star</option>
+                </select>
+            </div>
+            <div class="greyed">
+                color settings ...
             </div>
             <div>
-                <p class="centered">more settings ...</p>
+                <h3 class="centered">Stippling Settings</h3>
             </div>
             <div>
-                <p class="centered">more settings ...</p>
+                <input type="radio" id="iRegularStippling" name="stipplingType" value="0" onchange="stippler.styleChanged(0)"/>
+                <label for="iRegularStippling">regular stippling</label>
+                <br>
+                <input type="radio" id="iRestrictedStippling" name="stipplingType" value="1" onchange="stippler.styleChanged(1)"/>
+                <label for="iRestrictedStippling">restricted stippling</label>
+                <br>
+                <input type="radio" id="iMachbanding" name="stipplingType" value="2" onchange="stippler.styleChanged(2)"/>
+                <label for="iMachbanding">machbanding</label>
             </div>
-            <div>
-                <p class="centered">more settings ...</p>
+            <div class="greyed">
+                <input class="reactive_range" type="range" id="iDotSizeVariability" min="0" max="15" value="5">
+                <label for="iDotSizeVariability">dot size variability</label>
             </div>
-            <div>
-                <p class="centered">more settings ...</p>
+            <div class="greyed">
+                <input class="reactive_range" type="range" id="iContourSteps" min="0" max="15" value="5">
+                <label for="iContourSteps">contour steps DISPLAY ONLY WHEN MB OR RS</label>
             </div>
-            <div>
-                <p class="centered">more settings ...</p>
+            <div class="greyed">
+                <input class="reactive_range" type="range" id="iGaussSize" min="0" max="300" value="100">
+                <label for="iGaussSize">gauss size DISPLAY ONLY WHEN MB</label>
             </div>
-            <div>
-                <p class="centered">more settings ...</p>
+            <div class="greyed">
+                <input class="reactive_range" type="range" id="iEdgeWeight" min="0" max="300" value="100">
+                <label for="iEdgeWeight">edge weight DISPLAY ONLY WHEN MB</label>
+            </div>
+            <div class="centerContent">
+                <input type="button" value="Re-Stipple" onclick="stippler.step();stippler.draw();" /> <!-- check if initialize is needed-->
             </div>
         </div>
 

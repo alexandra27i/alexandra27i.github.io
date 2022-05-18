@@ -140,7 +140,8 @@ class Stippler {
     #density;
     #densityRange;
 
-    #mb;
+    #stipplingStyle;
+
     #mbDensity;
     #mbWeight;
     #mbContourSteps;
@@ -199,13 +200,13 @@ class Stippler {
         //#mbLowPassFiltered;
 
         this.#mbContourSteps = 5;       // obsolete for now
-        this.#mbWeight = 1; //denoted [0,1] unclear how relevant in 0..255 scale
+        this.#mbWeight = 1; //denoted [0,1]
         this.#mbContourMap = JSON.parse(JSON.stringify(density));
         this.#mbDensity = JSON.parse(JSON.stringify(density));
         this.#mbLowPassFiltered = JSON.parse(JSON.stringify(density));
         this.#mbHighPassFiltered = JSON.parse(JSON.stringify(density));
 
-        this.#mb = false;   //TODO: make this variable work
+        this.#stipplingStyle = 0;   //TODO: make this variable work / turn into number
 
         //initializing the contour map for restricted stippling
         for(let x = 0; x < density.length; x++) {
@@ -290,18 +291,20 @@ class Stippler {
     #sampleDensityAt(x, y, invert=true) {
         let densityX = Math.trunc(x * this.#density.length);
         let densityY = Math.trunc(y * this.#density[0].length);
-        /*
-        if (this.#mb === false) { //TODO: switch back
-            return invert
-                ? this.#densityRange[1] - this.#density[densityX][densityY]
-                : this.#density[densityX][densityY];
-        } else {
-         */
-        //TODO: add switches for different outputs
+
+        if (this.#stipplingStyle === 2) { //TODO: switch back
             return invert
                 ? this.#densityRange[1] - this.#mbDensity[densityX][densityY]
                 : this.#mbDensity[densityX][densityY];
-        //}
+        } else if (this.#stipplingStyle === 1) {
+            return invert
+                ? this.#densityRange[1] - this.#mbContourMap[densityX][densityY]
+                : this.#mbContourMap[densityX][densityY];
+        } else {
+            return invert
+                ? this.#densityRange[1] - this.#density[densityX][densityY]
+                : this.#density[densityX][densityY];
+        }
     }
 
     /**
@@ -475,8 +478,8 @@ class Stippler {
         }
     }
 
-    machBandingChanged() {
-        this.#mb = !this.#mb;
+    styleChanged(style = 0) {
+        this.#stipplingStyle = style;
     }
 
     /**

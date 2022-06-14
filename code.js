@@ -11,6 +11,8 @@ function init() {
 
     document.getElementById('iUploadImage').addEventListener('change', acceptImage);
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
+    document.getElementById("slider_dot_size_min").addEventListener("input", onStipplingRangeChanged);
+    document.getElementById("slider_dot_size_max").addEventListener("input", onStipplingRangeChanged);
     // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
     window.addEventListener('resize', windowResized);
 
@@ -48,12 +50,15 @@ function acceptImage(fileEvent) {
 /**
  * adds color to the left and right side of the sliders thumb (visual sugar, nothing more)
  */
-function adjustRangeVisuals() {
-    var value = (this.value-this.min)/(this.max-this.min)*100;
-    this.style.background = 'linear-gradient(' +
+function adjustRangeVisuals(slider=null) {
+    if(!slider) slider = this;
+    if(slider.currentTarget !== undefined) slider = slider.currentTarget; //coming from an event
+
+    var value = (slider.value-slider.min)/(slider.max-slider.min)*100;
+    slider.style.background = 'linear-gradient(' +
         'to right,' +
-        'var(--color_accent) 0%, var(--color_accent) '+value+'%, ' +
-        'var(--color_background) '+value+'%, var(--color_background) 100%' +
+        'var(--color_accent) 0%, var(--color_accent) ' + value + '%, ' +
+        'var(--color_background) ' + value + '%, var(--color_background) 100%' +
         ')'
     ;
 }
@@ -63,18 +68,44 @@ function adjustRangeVisuals() {
  */
 function dotsizeChanged() {
     let factor = document.getElementById("iDotSize").value/100.0;
-
-    stippler.scaleAll(factor);
-    stippler.draw();
+    if(factor === 0) {
+        stippler.forceClear();
+    } else {
+        stippler.scaleAll(factor);
+        stippler.draw();
+    }
 }
-
-//TODO: add live adjustable render settings
 
 /**
  * placeholder for any actions taken on window resize
  */
 function windowResized() {
 
+}
+
+function onStipplingRangeChanged() {
+    let slider_min = document.getElementById("slider_dot_size_min");
+    let slider_max = document.getElementById("slider_dot_size_max");
+
+    //ensure that max > min
+    let min = parseInt(slider_min.value);
+    let max = parseInt(slider_max.value);
+    if(max < STIPPLING_RANGE_MINMAX*100) { //prevent small max values, because this might kill the browser
+        max = STIPPLING_RANGE_MINMAX*100;
+    }
+    if(min < STIPPLING_RANGE_MINMIN*100) {
+        min = STIPPLING_RANGE_MINMIN*100;
+    }
+    if(min >= max) max = min + 1;
+
+    slider_min.value = min;
+    slider_max.value = max;
+    adjustRangeVisuals(slider_min);
+    adjustRangeVisuals(slider_max);
+
+    //set
+    STIPPLING_RANGE[0] = min/100.0;
+    STIPPLING_RANGE[1] = max/100.0;
 }
 
 
@@ -84,12 +115,13 @@ function windowResized() {
 //region Stippling
 //----------------------------------------------------------------------------------------------------------------------
 
-//todo: these are just here for quick access, we might wanna make them available via UI
-//      colors for the rest of the page are in the .css: :root
-//      I think we should do the stippling threaded to keep the UI responsive
-const STIPPLING_RANGE = [0.1, 3];
+var STIPPLING_RANGE = [0.1, 3];
+const STIPPLING_RANGE_MINMAX = 1;
+const STIPPLING_RANGE_MINMIN = 0.1;
+const STIPPLING_MAX_ITERATIONS = 50;
 const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
 const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
+let DENSITY = null;
 
 /**
  * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
@@ -106,16 +138,32 @@ function processImage(img) {
     let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
 
     //grayscale
-    let density = Array.from(Array(ca.width), () => new Array(ca.height));
+    DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
     for(let i = 0; i < subpixels.length; i+=4) {
         let y = Math.trunc((i/4) / ca.width);
         let x = (i/4) - y * ca.width;
 
-        density[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3; //flip y
+        DENSITY[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3; //flip y
     }
-    stippler.initialize(density, STIPPLING_RANGE);
+    stippleDensity();
+}
+
+function stippleDensity() {
+    if(DENSITY == null) return; //not loaded yet
+
+    //get current stippling style
+    let restricted = document.getElementById("iRestrictedStippling").checked;
+    let machbanding = document.getElementById("iMachbanding").checked;
+
+    stippler.initialize(DENSITY, STIPPLING_RANGE);
+    stippler.styleChanged(restricted ? 1 : machbanding ? 2 : 0);
     stippler.run();
     stippler.draw();
+
+    //reset dotsize
+    let slider = document.getElementById("iDotSize");
+    slider.value = 100;
+    adjustRangeVisuals(slider);
 }
 
 /**
@@ -367,50 +415,60 @@ class Stippler {
         let splits = [];
         let moved = [];
         let deleted = 0;
-        for(let i = 0; i < this.#stipples.length; i++) {
-            let polygon = voronoi.cellPolygon(i);
-            let cellStipple = this.#stipples[i];
+        try {
+            for (let i = 0; i < this.#stipples.length; i++) {
+                let polygon = voronoi.cellPolygon(i);
+                let cellStipple = this.#stipples[i];
 
-            //average intensity of stipple over its area
-            let area = Math.abs(d3.polygonArea(polygon)) || 1; //cant be 0
-            let avg_density = cellStipple.density / area;
+                //average intensity of stipple over its area
+                let area = Math.abs(d3.polygonArea(polygon)) || 1;
+                let avg_density = cellStipple.density / area;
 
-            //map density to a radius
-            let radius = this.#densityToRadius(avg_density);
+                //map density to a radius
+                let radius = this.#densityToRadius(avg_density);
 
-            //calculate thresholds
-            let [thDelete,thSplit] = this.#getDensityThreshold(radius);
+                //calculate thresholds
+                let [thDelete, thSplit] = this.#getDensityThreshold(radius);
 
-            if (cellStipple.density < thDelete) {
-                deleted++;
-            } else if (cellStipple.density > thSplit) {
-                //split
-                let cellCenter = d3.polygonCentroid(polygon);
+                if (cellStipple.density < thDelete) {
+                    deleted++;
+                } else if (cellStipple.density > thSplit) {
+                    //split
+                    let cellCenter = d3.polygonCentroid(polygon);
 
-                let dist = Math.sqrt(area / Math.PI) / 2.0;
-                let deltaX = cellCenter[0] - cellStipple.x;
-                let deltaY = cellCenter[1] - cellStipple.y;
-                let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                deltaX /= vectorLength;
-                deltaY /= vectorLength;
+                    let dist = Math.sqrt(area / Math.PI) / 2.0;
+                    let deltaX = cellCenter[0] - cellStipple.x;
+                    let deltaY = cellCenter[1] - cellStipple.y;
+                    let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    deltaX /= vectorLength;
+                    deltaY /= vectorLength;
 
-                splits.push({
-                    x: cellCenter[0] + dist * deltaX,
-                    y: cellCenter[1] + dist * deltaY,
-                    r: radius
-                });
-                splits.push({
-                    x: cellCenter[0] - dist * deltaX,
-                    y: cellCenter[1] - dist * deltaY,
-                    r: radius
-                });
-            } else {
-                //move
-                cellStipple.x = cellStipple.weightedSumX / cellStipple.density;
-                cellStipple.y = cellStipple.weightedSumY / cellStipple.density;
-                cellStipple.r = radius;
-                moved.push(cellStipple);
+                    splits.push({
+                        x: cellCenter[0] + dist * deltaX,
+                        y: cellCenter[1] + dist * deltaY,
+                        r: radius
+                    });
+                    splits.push({
+                        x: cellCenter[0] - dist * deltaX,
+                        y: cellCenter[1] - dist * deltaY,
+                        r: radius
+                    });
+                } else {
+                    //move
+                    cellStipple.x = cellStipple.weightedSumX / cellStipple.density;
+                    cellStipple.y = cellStipple.weightedSumY / cellStipple.density;
+                    cellStipple.r = radius;
+                    moved.push(cellStipple);
+                }
             }
+        } catch (ex) {
+            //still cleanup for the next run with relaxed values
+            this.#stepThreshold += 0.01;
+            for (let i = 0; i < this.#stipples.length; i++) {
+                this.#stipples[i].x /= width;
+                this.#stipples[i].y /= height;
+            }
+            return;
         }
 
         //adjust threshold and rebuild points
@@ -448,10 +506,16 @@ class Stippler {
     run(remainingError=0.05) {
         if(!this.#initialized) return;
 
-        while(this.#stepRemainingError > remainingError) {
+        let maxIterations = STIPPLING_MAX_ITERATIONS;
+        while(this.#stepRemainingError > remainingError && maxIterations > 0) {
             this.step(false);
+            maxIterations = maxIterations - 1;
         }
         this.#updateStippleBuffer();
+
+        if(maxIterations <= 0) {
+            console.log("warning: stippling run only finished due to max iterations = " + STIPPLING_MAX_ITERATIONS);
+        }
     }
 
     /**
@@ -473,6 +537,8 @@ class Stippler {
      */
     styleChanged(style = 0) {
         this.#stipplingStyle = style;
+        stippler.step();
+        stippler.draw();
     }
 
     /**
@@ -484,6 +550,10 @@ class Stippler {
 
         this.#renderer.drawDots(this.#stippleBuffer, true);
         if(voronoiLines) this.#renderer.drawVoronoi(this.#stippleBuffer, false);
+    }
+
+    forceClear() {
+        this.#renderer.forceClear();
     }
 
 }
@@ -675,6 +745,11 @@ class Renderer {
             this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
         }
         this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
+    }
+
+    forceClear() {
+        this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
+        this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
     }
 
 }

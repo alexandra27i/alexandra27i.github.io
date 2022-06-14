@@ -101,15 +101,15 @@ a {
     border-bottom: 0.1em solid var(--color_foreground);
 }
 
-.ui > div > input[type="checkbox"] {
+.ui > div > input[type="checkbox"], .ui > div > input[type="radio"] {
     appearance: none;
 }
 
-.ui > div > input[type="checkbox"]+label {
+.ui > div > input[type="checkbox"]+label, .ui > div > input[type="radio"]+label {
     margin-left: -0.75em;
 }
 
-.ui > div > input[type="checkbox"]+label::before {
+.ui > div > input[type="checkbox"]+label::before, .ui > div > input[type="radio"]+label::before {
     width: 1em;
     height: 1em;
     border-radius: 1em;
@@ -119,7 +119,7 @@ a {
     float: right;
 }
 
-.ui > div > input[type="checkbox"]:checked+label::before {
+.ui > div > input[type="checkbox"]:checked+label::before, .ui > div > input[type="radio"]:checked+label::before {
     box-shadow: inset 0 0 0 0.25em var(--color_background);
     background-color: var(--color_accent);
 }

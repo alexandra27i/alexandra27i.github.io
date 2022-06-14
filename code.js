@@ -13,6 +13,7 @@ function init() {
     document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
     document.getElementById("slider_dot_size_min").addEventListener("input", onStipplingRangeChanged);
     document.getElementById("slider_dot_size_max").addEventListener("input", onStipplingRangeChanged);
+    document.getElementById("dropdown_provided_files").addEventListener("change", dropdown_provided_files_onChange)
     // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
     window.addEventListener('resize', windowResized);
 
@@ -40,6 +41,10 @@ function acceptImage(fileEvent) {
     reader.onload = function(readerEvent) {
         let img = new Image();
         img.onload = function() {
+            //ok we are serious about this, reset the dropdown
+            document.getElementById("dropdown_provided_files").selectedIndex = 0;
+
+            //process img
             processImage(img);
         }
         img.src = readerEvent.target.result;
@@ -108,6 +113,20 @@ function onStipplingRangeChanged() {
     STIPPLING_RANGE[1] = max/100.0;
 }
 
+function dropdown_provided_files_onChange() {
+    let key = this.options[this.selectedIndex].value;
+    if(!(key in data_mapping)) {
+        console.warn(key + " is not available in data mapping");
+        return;
+    }
+
+    let data = data_mapping[key];
+    let width = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24);
+    let height = data[4] + (data[5] << 8) + (data[6] << 16) + (data[7] << 24);
+
+    DENSITY = data.slice(8);
+    stippleDensity();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 //endregion
@@ -514,7 +533,7 @@ class Stippler {
         this.#updateStippleBuffer();
 
         if(maxIterations <= 0) {
-            console.log("warning: stippling run only finished due to max iterations = " + STIPPLING_MAX_ITERATIONS);
+            console.warn("max iterations (" + STIPPLING_MAX_ITERATIONS + ") hit!");
         }
     }
 

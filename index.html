@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="styles.css">
     <script src="lib/d3.min.js"></script>
+    <script src="res/data.js"></script>
     <script src="code.js"></script>
     <script src="lib/array-blur.min.js"></script>
 
@@ -73,6 +74,18 @@
 
     <div class="app">
         <div class="ui">
+            <div>
+                <h3 class="centered">Settings</h3>
+            </div>
+            <div class="centerContent">
+                <select id="dropdown_provided_files">
+                    <option value="">...</option>
+                    <option value="population_usa">Population USA</option>
+                    <option value="population_world">Population World</option>
+                    <option value="islam">Islam</option>
+                    <option value="population_usa">Covid</option>
+                </select>
+            </div>
             <div class="centerContent">
                 <input type="button" value="Upload" onclick="document.getElementById('iUploadImage').click();" />
                 <input type="file" style="display:none;" id="iUploadImage"/>
@@ -80,12 +93,13 @@
             <div class="centerContent">
                 <input type="button" value="Re-Stipple" onclick="stippleDensity();" />
             </div>
+            <div class="space"><!-- space --></div>
             <div>
                 <h3 class="centered">Render Settings</h3>
             </div>
             <div>
                 <input class="reactive_range" type="range" id="iDotSize" min="0" max="300" value="100">
-                <label for="iDotSize">dot size</label>
+                <label for="iDotSize">contrast</label>
             </div>
             <div class="greyed">
                 <label for="iShape">Shape:</label>
@@ -99,6 +113,7 @@
             <div class="greyed">
                 color settings ...
             </div>
+            <div class="space"><!-- space --></div>
             <div>
                 <h3 class="centered">Stippling Settings</h3>
             </div>

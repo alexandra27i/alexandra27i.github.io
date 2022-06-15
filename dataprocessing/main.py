@@ -136,7 +136,8 @@ if __name__ == '__main__':
         create_2dsf_from_image(datajs, "data/christianity_world.png")
         create_2dsf_from_image(datajs, "data/buddhist_world.png")
         create_2dsf_from_image(datajs, "data/ufo.png")
-        create_2dsf_from_image(datajs, "data/austria_heightmap.png")
+        create_2dsf_from_image(datajs, "data/austria_heightmap.jpg")
+        create_2dsf_from_image(datajs, "data/germany_heightmap.png")
         create_2dsf_from_image(datajs, "data/generic_heightmap.png")
         create_2dsf_from_image(datajs, "data/heightmap_world.jpg")
 

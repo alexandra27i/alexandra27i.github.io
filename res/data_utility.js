@@ -124,6 +124,7 @@ function init_data() {
         "buddhism": convertDataTo2D(buddhist_world),
         "ufos": convertDataTo2D(ufo),
         "austria_heightmap": convertDataTo2D(austria_heightmap),
+        "germany_heightmap": convertDataTo2D(germany_heightmap),
         "generic_heightmap": convertDataTo2D(generic_heightmap),
         "heightmap_world": convertDataTo2D(heightmap_world)
     };

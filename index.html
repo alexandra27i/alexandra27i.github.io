@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="lib/d3.min.js"></script>
     <script src="res/data.js"></script>
+    <script src="res/data_utility.js"></script>
     <script src="code.js"></script>
     <script src="lib/array-blur.min.js"></script>
 
@@ -78,12 +79,14 @@
                 <h3 class="centered">Settings</h3>
             </div>
             <div class="centerContent">
-                <select id="dropdown_provided_files">
+                <select id="dropdown_provided_files"> <!-- data_utility.js:data_mapping entries -->
                     <option value="">...</option>
                     <option value="population_usa">Population USA</option>
                     <option value="population_world">Population World</option>
                     <option value="islam">Islam</option>
-                    <option value="population_usa">Covid</option>
+                    <option value="christianity">Christianity</option>
+                    <option value="ufos">Ufo Sightings (USA)</option>
+                    <option value="covid">Covid</option>
                 </select>
             </div>
             <div class="centerContent">

@@ -7,6 +7,8 @@ let stippler;
  * called on body onload
  */
 function init() {
+    init_data();
+
     stippler = new Stippler(document.getElementById('d3surface'));
 
     document.getElementById('iUploadImage').addEventListener('change', acceptImage);
@@ -121,8 +123,7 @@ function dropdown_provided_files_onChange() {
     }
 
     let data = data_mapping[key];
-    let width = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24);
-    let height = data[4] + (data[5] << 8) + (data[6] << 16) + (data[7] << 24);
+    [width, height] = getDimensionsFrom2DSF(data);
 
     DENSITY = data.slice(8);
     stippleDensity();

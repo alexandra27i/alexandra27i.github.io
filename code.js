@@ -122,10 +122,7 @@ function dropdown_provided_files_onChange() {
         return;
     }
 
-    let data = data_mapping[key];
-    [width, height] = getDimensionsFrom2DSF(data);
-
-    DENSITY = data.slice(8);
+    DENSITY = data_mapping[key];
     stippleDensity();
 }
 

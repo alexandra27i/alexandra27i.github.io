@@ -28,10 +28,10 @@ function convertDataTo2D(_data) {
 
     let result = Array.from(Array(width), () => new Array(height));
     for(let i = 8; i < data.length; i++) {
-        let y = Math.trunc((i) / width);
-        let x = i - y * width;
+        let y = Math.trunc((i-8) / width);
+        let x = (i-8) - y * width;
 
-        result[x][height-1-y] = (data[i]+data[i+1]+data[i+2])/3; //flip y
+        result[x][height-1-y] = data[i]; //flip y
     }
 
     return result;
@@ -42,7 +42,7 @@ function convertCovidDataTo2D(_data, callback) {
     let height = 2000;
     let data = JSON.parse(_data);
     let totalCases = data["Global"];
-    let worldmap = JSON.parse(worldmap_data);
+    let wm = JSON.parse(worldmap);
 
     //draw the map to an offscreen canvas
     let svg_root = document.createElement("canvas");
@@ -57,17 +57,19 @@ function convertCovidDataTo2D(_data, callback) {
         .append("g")
         .attr("transform", "translate(0, 0)");
 
-    var path = d3.geoPath();
     var projection = d3.geoMercator()
-        .fitSize([width, height*1.5], worldmap); //*1.5 to cut off antarctica, who cares about that anyways?
+        .fitSize([width, height*1.5], wm)
+        .center([0,0])
+        .translate([width/2, height/2])
+    ;
 
     var colorScale = d3.scaleLinear() //this might not be perfect - feel free to adjust it if you want
-        .domain([0      , 200000      , 1000000,  20000000])
-        .range( ["smokewhite", "lightgray", "gray"  ,    "black"]);
+        .domain([0           , 200000     , 1000000 , 20000000])
+        .range( ["smokewhite", "lightgray", "gray"  , "black"]);
 
     svg.append("g")
         .selectAll("path")
-        .data(worldmap.features)
+        .data(wm.features)
         .enter()
         .append("path")
         .attr("d", d3.geoPath().projection(projection))
@@ -117,9 +119,13 @@ function init_data() {
     data_mapping = {
         "population_usa": convertDataTo2D(population_usa),
         "population_world": convertDataTo2D(population_world),
-        "islam": convertDataTo2D(islam),
-        "christianity": convertDataTo2D(christianity),
-        "ufos": convertDataTo2D(ufos_usa)
+        "islam": convertDataTo2D(islam_world),
+        "christianity": convertDataTo2D(christianity_world),
+        "buddhism": convertDataTo2D(buddhist_world),
+        "ufos": convertDataTo2D(ufo),
+        "austria_heightmap": convertDataTo2D(austria_heightmap),
+        "generic_heightmap": convertDataTo2D(generic_heightmap),
+        "heightmap_world": convertDataTo2D(heightmap_world)
     };
     convertCovidDataTo2D(covid, (result) => {
         data_mapping["covid"] = result;

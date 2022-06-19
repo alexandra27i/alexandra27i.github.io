@@ -87,11 +87,8 @@ function dotsizeChanged() {
 
 function shapeChanged() {
     let key = this.options[this.selectedIndex].value;
-    if (key === "circle") {
-        circle = true;
-    } else  {
-        circle = false;
-    }
+    circle = key === "circle";
+    console.log(circle);
     stippler.draw();
 }
 
@@ -110,9 +107,6 @@ function onStipplingRangeChanged() {
     //ensure that max > min
     let min = slider_min.value;
     let max = slider_max.value;
-
-    console.log("min" + min);
-    console.log("max" + max);
 
     if(max < STIPPLING_RANGE_MINMAX*100) { //prevent small max values, because this might kill the browser
         max = STIPPLING_RANGE_MINMAX*100;
@@ -651,6 +645,8 @@ class Renderer {
         );
         this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderDots,
             "color"), this.color);
+        this.#gl.uniform1i(this.#gl.getUniformLocation(this.#shaderDots,
+            "circle"), circle);
 
         //draw
         this.#prepareDrawing(clearBefore);

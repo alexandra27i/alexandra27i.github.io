@@ -29,9 +29,12 @@
         uniform vec3 color;
         varying vec2 location;
         varying float radius;
-        bool circle;
+        uniform bool circle;
 
         float getAlpha(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
+            if (!circle) {
+                return 1.0;
+            }
             float covered = dist / radius;
             float a = 1.0;
             if(covered > 0.95) a = 1.0 - (covered - 0.95) / 0.05;
@@ -40,7 +43,7 @@
 
         void main() {
             float dist = distance(location, gl_FragCoord.xy); //distance to original point
-            if(dist > radius && circle) discard;
+            if(dist > radius && circle == true) discard;
 
             gl_FragColor = vec4(color, getAlpha(dist));
         }

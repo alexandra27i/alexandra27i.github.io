@@ -1,29 +1,32 @@
 //region init
 //----------------------------------------------------------------------------------------------------------------------
 
+/**
+ * Stippler Instance
+ */
 let stippler;
 
 /**
  * called on body onload
  */
 function init() {
-    init_data();
+    Data_utility.init_data();
 
     stippler = new Stippler(document.getElementById('d3surface'));
 
-    document.getElementById('iUploadImage').addEventListener('change', acceptImage);
-    document.getElementById('iDotSize').addEventListener('input', dotsizeChanged);
-    document.getElementById("slider_dot_size_min").addEventListener("input", onStipplingRangeChanged);
-    document.getElementById("slider_dot_size_max").addEventListener("input", onStipplingRangeChanged);
-    document.getElementById("dropdown_provided_files").addEventListener("change", dropdown_provided_files_onChange)
-    document.getElementById("iShape").addEventListener("change", shapeChanged);
+    document.getElementById('iUploadImage').addEventListener('change', UI.acceptImage);
+    document.getElementById('iDotSize').addEventListener('input', UI.dotsizeChanged);
+    document.getElementById("slider_dot_size_min").addEventListener("input", UI.onStipplingRangeChanged);
+    document.getElementById("slider_dot_size_max").addEventListener("input", UI.onStipplingRangeChanged);
+    document.getElementById("dropdown_provided_files").addEventListener("change", UI.dropdown_provided_files_onChange)
+    document.getElementById("iShape").addEventListener("change", UI.shapeChanged);
 
     // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
-    window.addEventListener('resize', windowResized);
+    window.addEventListener('resize', UI.windowResized);
 
     var elements = document.getElementsByClassName("reactive_range");
     for(var element of elements) {
-        element.oninput = adjustRangeVisuals;
+        element.oninput = UI.adjustRangeVisuals;
         element.oninput();
     }
 }
@@ -35,105 +38,176 @@ function init() {
 //----------------------------------------------------------------------------------------------------------------------
 
 /**
- * reads an uploaded file and moves it on to processing
- * @param fileEvent
+ * Handles user input
  */
-function acceptImage(fileEvent) {
-    if(!fileEvent.target.files[0]) return;
+class UI {
+    static cash_dotsize = null;
 
-    let reader = new FileReader();
-    reader.onload = function(readerEvent) {
-        let img = new Image();
-        img.onload = function() {
-            //ok we are serious about this, reset the dropdown
-            document.getElementById("dropdown_provided_files").selectedIndex = 0;
+    /**
+     * reads an uploaded file and moves it on to processing
+     * @param fileEvent
+     */
+    static acceptImage(fileEvent) {
+        if (!fileEvent.target.files[0]) return;
 
-            //process img
-            processImage(img);
+        let reader = new FileReader();
+        reader.onload = function (readerEvent) {
+            let img = new Image();
+            img.onload = function () {
+                //ok we are serious about this, reset the dropdown
+                document.getElementById("dropdown_provided_files").selectedIndex = 0;
+
+                //process img
+                UI.processImage(img);
+            }
+            img.src = readerEvent.target.result;
         }
-        img.src = readerEvent.target.result;
+        reader.readAsDataURL(fileEvent.target.files[0]);
     }
-    reader.readAsDataURL(fileEvent.target.files[0]);
-}
 
-/**
- * adds color to the left and right side of the sliders thumb (visual sugar, nothing more)
- */
-function adjustRangeVisuals(slider=null) {
-    if(!slider) slider = this;
-    if(slider.currentTarget !== undefined) slider = slider.currentTarget; //coming from an event
+    /**
+     * adds color to the left and right side of the sliders thumb (visual sugar, nothing more)
+     */
+    static adjustRangeVisuals(slider = null) {
+        if (!slider) slider = this;
+        if (slider.currentTarget !== undefined) slider = slider.currentTarget; //coming from an event
 
-    var value = (slider.value-slider.min)/(slider.max-slider.min)*100;
-    slider.style.background = 'linear-gradient(' +
-        'to right,' +
-        'var(--color_accent) 0%, var(--color_accent) ' + value + '%, ' +
-        'var(--color_background) ' + value + '%, var(--color_background) 100%' +
-        ')'
-    ;
-}
+        var value = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+        slider.style.background = 'linear-gradient(' +
+            'to right,' +
+            'var(--color_accent) 0%, var(--color_accent) ' + value + '%, ' +
+            'var(--color_background) ' + value + '%, var(--color_background) 100%' +
+            ')'
+        ;
+    }
 
-/**
- * manages global scaling
- */
-function dotsizeChanged() {
-    let factor = document.getElementById("iDotSize").value/100.0;
-    if(factor === 0) {
-        stippler.forceClear();
-    } else {
-        stippler.scaleAll(factor);
+    /**
+     * manages global scaling
+     */
+    static dotsizeChanged() {
+        if (UI.cash_dotsize == null) UI.cash_dotsize = document.getElementById("iDotSize");
+
+        let factor = UI.cash_dotsize.value / 100.0;
+        if (factor === 0) {
+            stippler.forceClear();
+        } else {
+            stippler.scaleAll(factor);
+            stippler.draw();
+        }
+    }
+
+    /**
+     * handles shape user input
+     */
+    static shapeChanged() {
+        let key = this.options[this.selectedIndex].value;
+        circle = key === "circle";
         stippler.draw();
     }
-}
 
-function shapeChanged() {
-    let key = this.options[this.selectedIndex].value;
-    circle = key === "circle";
-    stippler.draw();
-}
+    /**
+     * placeholder for any actions taken on window resize
+     */
+    static windowResized() {
 
-
-/**
- * placeholder for any actions taken on window resize
- */
-function windowResized() {
-
-}
-
-function onStipplingRangeChanged() {
-    let slider_min = document.getElementById("slider_dot_size_min");
-    let slider_max = document.getElementById("slider_dot_size_max");
-
-    //ensure that max > min
-    let min = slider_min.value;
-    let max = slider_max.value;
-
-    if(max < STIPPLING_RANGE_MINMAX*100) { //prevent small max values, because this might kill the browser
-        max = STIPPLING_RANGE_MINMAX*100;
-    }
-    if(min < STIPPLING_RANGE_MINMIN*100) {
-        min = STIPPLING_RANGE_MINMIN*100;
-    }
-    if(min >= max) max = min + 1;
-
-    slider_min.value = min;
-    slider_max.value = max;
-    adjustRangeVisuals(slider_min);
-    adjustRangeVisuals(slider_max);
-
-    //set
-    STIPPLING_RANGE[0] = min/100.0;
-    STIPPLING_RANGE[1] = max/100.0;
-}
-
-function dropdown_provided_files_onChange() {
-    let key = this.options[this.selectedIndex].value;
-    if(!(key in data_mapping)) {
-        console.warn(key + " is not available in data mapping");
-        return;
     }
 
-    DENSITY = data_mapping[key];
-    stippleDensity();
+    /**
+     * handles stipple size user input
+     */
+    static onStipplingRangeChanged() {
+        let slider_min = document.getElementById("slider_dot_size_min");
+        let slider_max = document.getElementById("slider_dot_size_max");
+
+        //ensure that max > min
+        let min = parseInt(slider_min.value);
+        let max = parseInt(slider_max.value);
+
+        if (max < STIPPLING_RANGE_MINMAX * 100) { //prevent small max values, because this might kill the browser
+            max = STIPPLING_RANGE_MINMAX * 100;
+        }
+        if (min < STIPPLING_RANGE_MINMIN * 100) {
+            min = STIPPLING_RANGE_MINMIN * 100;
+        }
+        if (min >= max) max = min + 1;
+
+        slider_min.value = min;
+        slider_max.value = max;
+        UI.adjustRangeVisuals(slider_min);
+        UI.adjustRangeVisuals(slider_max);
+
+        //set
+        STIPPLING_RANGE[0] = min / 100.0;
+        STIPPLING_RANGE[1] = max / 100.0;
+    }
+
+    /**
+     * handles selection of preprocessed files
+     */
+    static dropdown_provided_files_onChange() {
+        let key = this.options[this.selectedIndex].value;
+        if (!(key in Data_utility.data_mapping)) {
+            console.warn(key + " is not available in data mapping");
+            return;
+        }
+
+        DENSITY = Data_utility.data_mapping[key];
+        UI.stippleDensity();
+    }
+
+    /**
+     * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
+     * @param img uploaded image
+     */
+    static processImage(img) {
+        let ca = document.createElement("canvas");
+        let co = ca.getContext("2d");
+
+        ca.width = img.width;
+        ca.height = img.height;
+        co.drawImage(img, 0, 0);
+
+        let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
+
+        //grayscale
+        DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
+        COLOR_DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
+        for(let i = 0; i < subpixels.length; i+=4) {
+            let y = Math.trunc((i/4) / ca.width);
+            let x = (i/4) - y * ca.width;
+
+            let r = subpixels[i];
+            let g = subpixels[i+1];
+            let b = subpixels[i+2];
+
+            DENSITY[x][ca.height-1-y] = (r + g + b)/3; //flip y
+            COLOR_DENSITY[x][ca.height-1-y] = [r/255, g/255, b/255]; //flip y
+        }
+
+        UI.stippleDensity();
+    }
+
+    /**
+     * start the stippling algorithm with density, stippling range and countour style
+     */
+    static stippleDensity() {
+        if(DENSITY == null) return; //not loaded yet
+
+        //get current stippling style
+        let restricted = document.getElementById("iRestrictedStippling").checked;
+        let machbanding = document.getElementById("iMachbanding").checked;
+
+        stippler.initialize(DENSITY, STIPPLING_RANGE);
+        stippler.styleChanged(restricted ? 1 : machbanding ? 2 : 0);
+        stippler.run();
+        stippler.draw();
+
+        //reset dotsize
+        let slider = document.getElementById("iDotSize");
+        slider.value = 100;
+        UI.adjustRangeVisuals(slider);
+    }
+
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -154,55 +228,6 @@ let COLOR_DENSITY = null;
 let circle = true;
 let colored = false;
 
-/**
- * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
- * @param img uploaded image
- */
-function processImage(img) {
-    let ca = document.createElement("canvas");
-    let co = ca.getContext("2d");
-
-    ca.width = img.width;
-    ca.height = img.height;
-    co.drawImage(img, 0, 0);
-
-    let subpixels = co.getImageData(0, 0, ca.width, ca.height).data;
-
-    //grayscale
-    DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
-    COLOR_DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
-    for(let i = 0; i < subpixels.length; i+=4) {
-        let y = Math.trunc((i/4) / ca.width);
-        let x = (i/4) - y * ca.width;
-
-        let r = subpixels[i];
-        let g = subpixels[i+1];
-        let b = subpixels[i+2];
-
-        DENSITY[x][ca.height-1-y] = (r + g + b)/3; //flip y
-        COLOR_DENSITY[x][ca.height-1-y] = [r/255, g/255, b/255]; //flip y
-    }
-
-    stippleDensity();
-}
-
-function stippleDensity() {
-    if(DENSITY == null) return; //not loaded yet
-
-    //get current stippling style
-    let restricted = document.getElementById("iRestrictedStippling").checked;
-    let machbanding = document.getElementById("iMachbanding").checked;
-
-    stippler.initialize(DENSITY, STIPPLING_RANGE);
-    stippler.styleChanged(restricted ? 1 : machbanding ? 2 : 0);
-    stippler.run();
-    stippler.draw();
-
-    //reset dotsize
-    let slider = document.getElementById("iDotSize");
-    slider.value = 100;
-    adjustRangeVisuals(slider);
-}
 
 /**
  * Provides the stippling algorithm.
@@ -538,11 +563,11 @@ class Stippler {
 
             let densityX = Math.trunc(this.#stipples[i].x * this.#density.length);
             let densityY = Math.trunc(this.#stipples[i].y * this.#density[0].length);
-            let color = COLOR_DENSITY[densityX][densityY];
+            let color = (colored && COLOR_DENSITY != null) ? COLOR_DENSITY[densityX][densityY] : [0.0,0.0,0.0];
 
-            this.#stippleBuffer[i*6+3] = colored ? color[0] : 0.0;
-            this.#stippleBuffer[i*6+4] = colored ? color[1] : 0.0;
-            this.#stippleBuffer[i*6+5] = colored ? color[2] : 0.0;
+            this.#stippleBuffer[i*6+3] = color[0];
+            this.#stippleBuffer[i*6+4] = color[1];
+            this.#stippleBuffer[i*6+5] = color[2];
         }
     }
 
@@ -588,7 +613,6 @@ class Stippler {
 
     toggleColor() {
         colored = !colored;
-        console.log(colored);
     }
 
     /**
@@ -742,7 +766,7 @@ class Renderer {
 
     /**
      * Fixes the actual width and height of the canvas and returns it
-     * @returns {*[]} actual width and height of the used canvas
+     * @returns {array} actual [width, height] of the used canvas
      */
     getCanvasDimension() {
         this.#fixCanvas();

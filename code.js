@@ -16,6 +16,8 @@ function init() {
     document.getElementById("slider_dot_size_min").addEventListener("input", onStipplingRangeChanged);
     document.getElementById("slider_dot_size_max").addEventListener("input", onStipplingRangeChanged);
     document.getElementById("dropdown_provided_files").addEventListener("change", dropdown_provided_files_onChange)
+    document.getElementById("iShape").addEventListener("change", shapeChanged);
+
     // document.getElementById('iMachbanding').addEventListener('input', machBandingChanged);
     window.addEventListener('resize', windowResized);
 
@@ -83,6 +85,17 @@ function dotsizeChanged() {
     }
 }
 
+function shapeChanged() {
+    let key = this.options[this.selectedIndex].value;
+    if (key === "circle") {
+        circle = true;
+    } else  {
+        circle = false;
+    }
+    stippler.draw();
+}
+
+
 /**
  * placeholder for any actions taken on window resize
  */
@@ -95,8 +108,12 @@ function onStipplingRangeChanged() {
     let slider_max = document.getElementById("slider_dot_size_max");
 
     //ensure that max > min
-    let min = parseInt(slider_min.value);
-    let max = parseInt(slider_max.value);
+    let min = slider_min.value;
+    let max = slider_max.value;
+
+    console.log("min" + min);
+    console.log("max" + max);
+
     if(max < STIPPLING_RANGE_MINMAX*100) { //prevent small max values, because this might kill the browser
         max = STIPPLING_RANGE_MINMAX*100;
     }
@@ -139,6 +156,8 @@ const STIPPLING_MAX_ITERATIONS = 50;
 const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
 const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
 let DENSITY = null;
+
+let circle = true;
 
 /**
  * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
@@ -210,7 +229,6 @@ class Stippler {
     #mbContourMap;
     #mbLowPassFiltered;
     #mbHighPassFiltered;
-    #mbGaussianSize;                // yielded good results when close to stipple
 
     /**
      * Stippler constructor
@@ -261,7 +279,7 @@ class Stippler {
         //#mbGaussianSize;                // yielded good results when close to stipple
         //#mbLowPassFiltered;
 
-        this.#mbContourSteps = 5;        // TODO: obsolete for now, make variable
+        this.#mbContourSteps = 5;
         this.#mbWeight = 1; //denoted [0,1]
         this.#mbContourMap = JSON.parse(JSON.stringify(density));
         this.#mbDensity = JSON.parse(JSON.stringify(density));
@@ -269,8 +287,6 @@ class Stippler {
         this.#mbHighPassFiltered = JSON.parse(JSON.stringify(density));
 
         this.#stipplingStyle = 0;  // 1 = restricted, 2 = machBanding, 0 or anything else = regular stippling
-
-        // TODO: replace loops with maps
 
         //initializing the contour map for restricted stippling
         for(let x = 0; x < density.length; x++) {
@@ -554,8 +570,6 @@ class Stippler {
      */
     styleChanged(style = 0) {
         this.#stipplingStyle = style;
-        stippler.step();
-        stippler.draw();
     }
 
     /**

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <title>"Stippling – SS22"</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="styles.css">
     <script src="lib/d3.min.js"></script>
@@ -28,6 +29,7 @@
         uniform vec3 color;
         varying vec2 location;
         varying float radius;
+        bool circle;
 
         float getAlpha(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
             float covered = dist / radius;
@@ -38,7 +40,7 @@
 
         void main() {
             float dist = distance(location, gl_FragCoord.xy); //distance to original point
-            if(dist > radius) discard;
+            if(dist > radius && circle) discard;
 
             gl_FragColor = vec4(color, getAlpha(dist));
         }
@@ -98,9 +100,6 @@
                 <input type="button" value="Upload" onclick="document.getElementById('iUploadImage').click();" />
                 <input type="file" style="display:none;" id="iUploadImage"/>
             </div>
-            <div class="centerContent">
-                <input type="button" value="Re-Stipple" onclick="stippleDensity();" />
-            </div>
             <div class="space"><!-- space --></div>
             <div>
                 <h3 class="centered">Render Settings</h3>
@@ -114,8 +113,6 @@
                 <select name="shape" id="iShape">
                     <option value="circle">Circle</option>
                     <option value="square">Square</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="star">Star</option>
                 </select>
             </div>
             <div class="greyed">
@@ -138,24 +135,15 @@
                 <label for="iMachbanding">machbanding</label>
             </div>
             <div>
-                <input class="reactive_range" type="range" id="slider_dot_size_min" min="1" max="500" value="10">
+                <input class="reactive_range" type="range" id="slider_dot_size_min" min="1" max="1000" value="10">
                 <label for="slider_dot_size_min">dot size min</label>
             </div>
             <div>
-                <input class="reactive_range" type="range" id="slider_dot_size_max" min="1" max="500" value="300">
+                <input class="reactive_range" type="range" id="slider_dot_size_max" min="1" max="1000" value="300">
                 <label for="slider_dot_size_max">dot size max</label>
             </div>
-            <div class="greyed">
-                <input class="reactive_range" type="range" id="iContourSteps" min="0" max="15" value="5">
-                <label for="iContourSteps">contour steps DISPLAY ONLY WHEN MB OR RS</label>
-            </div>
-            <div class="greyed">
-                <input class="reactive_range" type="range" id="iGaussSize" min="0" max="300" value="100">
-                <label for="iGaussSize">gauss size DISPLAY ONLY WHEN MB</label>
-            </div>
-            <div class="greyed">
-                <input class="reactive_range" type="range" id="iEdgeWeight" min="0" max="300" value="100">
-                <label for="iEdgeWeight">edge weight DISPLAY ONLY WHEN MB</label>
+            <div class="centerContent">
+                <input type="button" value="Re-Stipple" onclick="stippleDensity();" />
             </div>
         </div>
 

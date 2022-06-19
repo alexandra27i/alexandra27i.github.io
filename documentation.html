@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+  <title> </title>
+
+</head>
+
+<style>
+  /*region global*/
+  /*--------------------------------------------------------------------------------------------------------------------*/
+
+  @font-face {
+    font-family: Barlow;
+    src: url("res/fonts/barlow/Barlow-Regular.ttf");
+  }
+
+  :root {
+    --color_foreground: whitesmoke;
+    --color_background: dimgray;
+    --color_accent: aqua;
+    --color_secondary: MediumTurquoise;
+    --color_greyed: silver;
+  }
+
+  html,
+  body{
+    height: 98%;
+  }
+
+  body {
+    background: var(--color_background);
+    color: var(--color_foreground);
+    font-family: Barlow, monospace;
+  }
+
+  .boxedContent {
+    margin-left: 20%;
+    margin-right: 20%;
+  }
+
+  header {
+    height: 15%;
+    width: 100%;
+    margin-top: 1%;
+  }
+
+  .app {
+    display: flex;
+    height: 85%;
+    width: 100%;
+    border: 0.1em solid var(--color_foreground);
+    border-top-left-radius: 2em;
+  }
+
+  a {
+    color: var(--color_accent);
+  }
+
+  h2 {
+    margin-top: 60px;
+  }
+
+  .linkButton {
+    width: 50%;
+    border: 1px solid var(--color_foreground);
+    border-radius: 0.2em;
+    padding: 0.2em;
+    background: var(--color_background);
+    color: var(--color_accent);
+    transition: 0.5s;
+    font-size: 1.2em;
+    margin: auto;
+  }
+
+  /*--------------------------------------------------------------------------------------------------------------------*/
+  /*endregion*/
+
+  /*region utility*/
+  /*--------------------------------------------------------------------------------------------------------------------*/
+
+  .italic {
+    font-style: italic;
+  }
+
+  .bold {
+    font-weight: bolder;
+  }
+
+
+  .cohesive {
+    margin-bottom: -0.4em;
+  }
+
+  .centered {
+    text-align: center;
+  }
+
+  .centerContent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .greyed {
+    color: var(--color_greyed);
+  }
+
+  /*--------------------------------------------------------------------------------------------------------------------*/
+  /*endregion*/
+
+  /*region UI*/
+  /*--------------------------------------------------------------------------------------------------------------------*/
+
+  .output {
+    flex-grow: 100;
+  }
+
+  .output > canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .ui {
+    height: 100%;
+    min-width: 15em;
+    max-width: 25em;
+    width: 30%;
+    border-right: 0.1em solid var(--color_foreground);
+    overflow-y: auto;
+  }
+
+  .ui > div {
+    width: 94%;
+    padding: 3%;
+    border-bottom: 0.1em solid var(--color_foreground);
+  }
+
+  .ui > div > input[type="checkbox"], .ui > div > input[type="radio"] {
+    appearance: none;
+  }
+
+  .ui > div > input[type="checkbox"]+label, .ui > div > input[type="radio"]+label {
+    margin-left: -0.75em;
+  }
+
+  .ui > div > input[type="checkbox"]+label::before, .ui > div > input[type="radio"]+label::before {
+    width: 1em;
+    height: 1em;
+    border-radius: 1em;
+    border: 0.1em solid var(--color_foreground);
+    background-color: var(--color_background);
+    content: "";
+    float: right;
+  }
+
+  .ui > div > input[type="checkbox"]:checked+label::before, .ui > div > input[type="radio"]:checked+label::before {
+    box-shadow: inset 0 0 0 0.25em var(--color_background);
+    background-color: var(--color_accent);
+  }
+
+  .ui > div > input[type="button"] {
+    width: 50%;
+    border: 1px solid var(--color_foreground);
+    border-radius: 0.2em;
+    padding: 0.2em;
+    background: var(--color_background);
+    color: var(--color_accent);
+    transition: 0.5s;
+    font-size: 1.2em;
+    margin: auto;
+  }
+
+  .ui > div > input[type="button"]:hover {
+    background: var(--color_secondary);
+    color: var(--color_foreground);
+    border: 1px solid var(--color_secondary);
+    cursor: pointer;
+  }
+
+
+  .ui > div > input[type="range"] {
+    -webkit-appearance: none;
+    width: 70%;
+    margin-top: 0.4em;
+    float: right;
+    background: linear-gradient(
+            to right,
+            var(--color_accent) 0%, var(--color_accent) 10%,
+            var(--color_background) 10%, var(--color_background) 100%
+    );
+    margin-right: -1px;
+  }
+
+  .ui > div > input[type="range"]::-webkit-slider-runnable-track {
+    height: 0.4em;
+    cursor: pointer;
+    border-radius: 0;
+    border: 0.1em solid var(--color_foreground);
+  }
+
+  .ui > div > input[type="range"]::-webkit-slider-thumb {
+    border: 0.1em solid var(--color_foreground);
+    border-radius: 1em;
+    height: 1.5em;
+    width: 1.5em;
+    background: var(--color_background);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -0.67em;
+  }
+
+  /*firefox fixes (still looks kinda shit .. acceptable - but shit)*/
+
+  .ui > div > input[type="range"]:-moz-read-only {
+    margin-top: 0;
+  }
+
+  .ui > div > input[type="range"]::-moz-range-track {
+    height: 1.2em;
+    cursor: pointer;
+    border-radius: 0;
+    border: 0.1em solid var(--color_foreground);
+  }
+
+  .ui > div > input[type="range"]::-moz-range-thumb {
+    border: 0.1em solid var(--color_foreground);
+    border-radius: 1em;
+    height: 1.5em;
+    width: 1.5em;
+    background: var(--color_background);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -0.67em;
+  }
+
+  .ui > div > select {
+    width: 90%;
+    background: var(--color_background);
+    color: var(--color_foreground);
+    border: 1px solid var(--color_foreground);
+    border-radius: 0.2em;
+    padding: 0.2em;
+    transition: 0.5s;
+    font-size: 1.2em;
+    margin: auto;
+  }
+
+  .ui > div > select > option {
+    text-align: center;
+  }
+
+  .reactive_range {
+    /*dummy for js*/
+  }
+
+  .space {
+    height: 1px;
+    margin: 0em;
+    padding: 0em;
+    background: var(--color_greyed);
+  }
+
+  /*--------------------------------------------------------------------------------------------------------------------*/
+  /*endregion*/
+
+</style>
+
+<body class ="boxedContent">
+
+<header >
+  <h1 class="cohesive">Stippling</h1>
+  <h3 class="cohesive">by Philip Ferenz & Alexandra Irger</h3>
+
+  <p class="italic cohesive">Based on the Paper
+    <a href="https://ieeexplore.ieee.org/document/8667696" target="_blank" rel="noopener noreferrer">
+      »Stippling of 2D Scalar Fields«
+    </a>
+    by Görtler et al.
+  </p>
+</header>
+
+
+    <button class="centerContent linkButton">
+      <a href="https://www.google.com">
+       Try it!
+      </a>
+    </button>
+
+  <h2 class = "bold"> Description  </h2>
+    <p>
+      The paper »Stippling of 2D Scalar Fields« describes a technique used to represent 2-dimensional
+      data using stipples. It is based on the Linde-Buzo-Gray algorithm and extends it with more control
+      over the result, such as the emulation of contours.
+    </p>
+    <p>
+      The algorithm starts with taking two-dimensional data and assigning density values to it. This output
+      can then be preprocessed fo contour enhancing techniques also described in the paper. The Linde-
+      Buzo-Gray algorithm is then applied, which consists of splitting, moving, or deleting stipples until
+      a set change threshold is reached. The resulting stipples are then displayed.
+    </p>
+    <h2> Implementation </h2>
+      <p>
+        We implemented the LBG algorithm as described in the paper and render it via <a href="">WebGl</a>.
+        Preprocessing concerning contour emulation is done beforehand. [...]
+      </p>
+    <h2> Features </h2>
+      <p>
+        <b><i>SETTINGS:</i></b>
+        It let's you either upload your own data in an image file format, or use one of 10+ preloaded datasets.
+      </p>
+      <p>
+        <b><i>RENDER SETTINGS:</i></b>
+        Contains real time adjustments to the render output. We included a contrast slider, to adjust the rendered
+        dot-size for the image. Based on the Gestalt principles on the paper, we implemented the function to display
+        the dots either as a circle or a square.
+        Color noch offen
+      </p>
+      <p>
+        <b><i>STIPPLING SETTINGS:</i></b>This input section let's you control the contour emulation method, as well as the desired dot-size variation.
+        These adjustments make a recomputation of the output necessary.
+      </p>
+    <h2> References</h2>
+      J. Görtler, M. Spicker, C. Schulz, D. Weiskopf and O. Deussen, "Stippling of 2D Scalar Fields," in IEEE
+      Transactions on Visualization and Computer Graphics, vol. 25, no. 6, pp. 2193-2204, 1 June 2019, doi:
+      10.1109/TVCG.2019.2903945. <a href="https://ieeexplore.ieee.org/document/8667696">Link to paper</a> <br>
+    <a href="">WebGL</a> <br>
+    <a href="">d3.js</a> <br>
+    <a href="">blur filter</a> <br>
+    <a href="">datasets?</a> <br>
+</body>
+</html>

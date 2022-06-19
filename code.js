@@ -175,12 +175,12 @@ function processImage(img) {
         let y = Math.trunc((i/4) / ca.width);
         let x = (i/4) - y * ca.width;
 
-        let sub1 = subpixels[i];
-        let sub2 = subpixels[i+1];
-        let sub3 = subpixels[i+2];
+        let r = subpixels[i];
+        let g = subpixels[i+1];
+        let b = subpixels[i+2];
 
-        DENSITY[x][ca.height-1-y] = (sub1 + sub2 + sub3)/3; //flip y
-        COLOR_DENSITY[x][ca.height-1-y] = [sub1, sub2, sub3]; //flip y
+        DENSITY[x][ca.height-1-y] = (r + g + b)/3; //flip y
+        COLOR_DENSITY[x][ca.height-1-y] = [r/255, g/255, b/255]; //flip y
     }
 
     stippleDensity();
@@ -532,17 +532,17 @@ class Stippler {
     #updateStippleBuffer() {
         this.#stippleBuffer = new Array(this.#stipples.length * 6); //x,y,size for each stipple
         for (let i = 0; i < this.#stipples.length; i++) {
-            this.#stippleBuffer[i*3  ] = ((this.#stipples[i].x - 0.5) * 2);
-            this.#stippleBuffer[i*3+1] = ((this.#stipples[i].y - 0.5) * 2);
-            this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
+            this.#stippleBuffer[i*6  ] = ((this.#stipples[i].x - 0.5) * 2);
+            this.#stippleBuffer[i*6+1] = ((this.#stipples[i].y - 0.5) * 2);
+            this.#stippleBuffer[i*6+2] = this.#stipples[i].r * this.#stippleScale;
 
             let densityX = Math.trunc(this.#stipples[i].x * this.#density.length);
             let densityY = Math.trunc(this.#stipples[i].y * this.#density[0].length);
             let color = COLOR_DENSITY[densityX][densityY];
 
-            this.#stippleBuffer[i*3+3] = colored ? color[0] : 0.0;
-            this.#stippleBuffer[i*3+4] = colored ? color[1] : 0.0;
-            this.#stippleBuffer[i*3+5] = colored ? color[2] : 0.0;
+            this.#stippleBuffer[i*6+3] = colored ? color[0] : 0.0;
+            this.#stippleBuffer[i*6+4] = colored ? color[1] : 0.0;
+            this.#stippleBuffer[i*6+5] = colored ? color[2] : 0.0;
         }
     }
 

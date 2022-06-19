@@ -88,7 +88,6 @@ function dotsizeChanged() {
 function shapeChanged() {
     let key = this.options[this.selectedIndex].value;
     circle = key === "circle";
-    console.log(circle);
     stippler.draw();
 }
 
@@ -150,8 +149,10 @@ const STIPPLING_MAX_ITERATIONS = 50;
 const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
 const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
 let DENSITY = null;
+let COLOR_DENSITY = null;
 
 let circle = true;
+let colored = false;
 
 /**
  * Converts the image to grayscale with flipped y-axis and starts the stippling algorithm
@@ -169,12 +170,19 @@ function processImage(img) {
 
     //grayscale
     DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
+    COLOR_DENSITY = Array.from(Array(ca.width), () => new Array(ca.height));
     for(let i = 0; i < subpixels.length; i+=4) {
         let y = Math.trunc((i/4) / ca.width);
         let x = (i/4) - y * ca.width;
 
-        DENSITY[x][ca.height-1-y] = (subpixels[i]+subpixels[i+1]+subpixels[i+2])/3; //flip y
+        let sub1 = subpixels[i];
+        let sub2 = subpixels[i+1];
+        let sub3 = subpixels[i+2];
+
+        DENSITY[x][ca.height-1-y] = (sub1 + sub2 + sub3)/3; //flip y
+        COLOR_DENSITY[x][ca.height-1-y] = [sub1, sub2, sub3]; //flip y
     }
+
     stippleDensity();
 }
 
@@ -214,6 +222,7 @@ class Stippler {
 
     #density;
     #densityRange;
+    #colorDensity;
 
     #stipplingStyle;
 
@@ -238,14 +247,17 @@ class Stippler {
      * @param density 2D array of density values
      * @param stippleRange range for stipple radius: [min, max]
      * @param stipplesAtStart optional, defines the number of random stipples at the start
+     * @param colorDensity color values, optional
      */
-    initialize(density, stippleRange, stipplesAtStart=100) {
+    initialize(density, stippleRange, stipplesAtStart=100, colorDensity = null) {
         this.#stipples = new Array(stipplesAtStart);
         this.#stippleRange = stippleRange;
         this.#stippleRange.distance = stippleRange[1] - stippleRange[0];
         this.#stepThreshold = 0.4;
         this.#stepRemainingError = 1.0;
         this.#stippleScale = 1.0;
+
+        this.#colorDensity = colorDensity;
 
         this.#density = density;
         this.#densityRange = [0, 0];
@@ -356,7 +368,7 @@ class Stippler {
         let densityX = Math.trunc(x * this.#density.length);
         let densityY = Math.trunc(y * this.#density[0].length);
 
-        if (this.#stipplingStyle === 2) { //TODO: switch back
+        if (this.#stipplingStyle === 2) {
             return invert
                 ? this.#densityRange[1] - this.#mbDensity[densityX][densityY]
                 : this.#mbDensity[densityX][densityY];
@@ -518,11 +530,19 @@ class Stippler {
      * Updates the buffer used for WebGL rendering, containing all the data necessary in the shaders
      */
     #updateStippleBuffer() {
-        this.#stippleBuffer = new Array(this.#stipples.length * 3); //x,y,size for each stipple
+        this.#stippleBuffer = new Array(this.#stipples.length * 6); //x,y,size for each stipple
         for (let i = 0; i < this.#stipples.length; i++) {
             this.#stippleBuffer[i*3  ] = ((this.#stipples[i].x - 0.5) * 2);
             this.#stippleBuffer[i*3+1] = ((this.#stipples[i].y - 0.5) * 2);
             this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
+
+            let densityX = Math.trunc(this.#stipples[i].x * this.#density.length);
+            let densityY = Math.trunc(this.#stipples[i].y * this.#density[0].length);
+            let color = COLOR_DENSITY[densityX][densityY];
+
+            this.#stippleBuffer[i*3+3] = colored ? color[0] : 0.0;
+            this.#stippleBuffer[i*3+4] = colored ? color[1] : 0.0;
+            this.#stippleBuffer[i*3+5] = colored ? color[2] : 0.0;
         }
     }
 
@@ -554,7 +574,7 @@ class Stippler {
         this.#stippleScale = factor;
 
         for (let i = 0; i < this.#stipples.length; i++) {
-            this.#stippleBuffer[i*3+2] = this.#stipples[i].r * this.#stippleScale;
+            this.#stippleBuffer[i*6+2] = this.#stipples[i].r * this.#stippleScale;
         }
     }
 
@@ -564,6 +584,11 @@ class Stippler {
      */
     styleChanged(style = 0) {
         this.#stipplingStyle = style;
+    }
+
+    toggleColor() {
+        colored = !colored;
+        console.log(colored);
     }
 
     /**
@@ -630,11 +655,14 @@ class Renderer {
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboDots);
         this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(data), this.#gl.STATIC_DRAW);
         let aPos = this.#gl.getAttribLocation(this.#shaderDots, "aPos");
-        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 12, 0);
+        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 24, 0);
         this.#gl.enableVertexAttribArray(aPos);
         let aSize = this.#gl.getAttribLocation(this.#shaderDots, "aSize");
-        this.#gl.vertexAttribPointer(aSize, 1, this.#gl.FLOAT, false, 12, 8);
+        this.#gl.vertexAttribPointer(aSize, 1, this.#gl.FLOAT, false, 24, 8);
         this.#gl.enableVertexAttribArray(aSize);
+        let aColor = this.#gl.getAttribLocation(this.#shaderDots, "aColor");
+        this.#gl.vertexAttribPointer(aColor, 3, this.#gl.FLOAT, false, 24, 12);
+        this.#gl.enableVertexAttribArray(aColor);
 
         //uniforms
         this.#gl.uniform2fv(this.#gl.getUniformLocation(this.#shaderDots,
@@ -643,14 +671,12 @@ class Renderer {
                 this.#canvas.height
             ]
         );
-        this.#gl.uniform3fv(this.#gl.getUniformLocation(this.#shaderDots,
-            "color"), this.color);
         this.#gl.uniform1i(this.#gl.getUniformLocation(this.#shaderDots,
             "circle"), circle);
 
         //draw
         this.#prepareDrawing(clearBefore);
-        this.#gl.drawArrays(this.#gl.POINTS, 0, data.length/3);
+        this.#gl.drawArrays(this.#gl.POINTS, 0, data.length/6);
 
         //clean finish
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, null);

@@ -13,11 +13,14 @@
     <script type="x-shader/x-vertex" id="dots-vs">
         attribute vec2 aPos;
         attribute float aSize;
+        attribute vec3 aColor;
         uniform vec2 screen;
         varying vec2 location;
         varying float radius;
+        varying vec3 color;
 
         void main() {
+            color = aColor;
             gl_Position = vec4(aPos, 0.0, 1.0);
             location = screen * (aPos * 0.5 + 0.5);
             radius = aSize / 2.0;
@@ -26,9 +29,9 @@
     </script>
     <script type="x-shader/x-fragment" id="dots-fs">
         precision mediump float;
-        uniform vec3 color;
         varying vec2 location;
         varying float radius;
+        varying vec3 color;
         uniform bool circle;
 
         float getAlpha(float dist) { //interpolate the last view pixels for smoother dots (antialias für arme)
@@ -111,15 +114,12 @@
                 <input class="reactive_range" type="range" id="iDotSize" min="0" max="300" value="100">
                 <label for="iDotSize">contrast</label>
             </div>
-            <div class="greyed">
-                <label for="iShape">Shape:</label>
-                <select name="shape" id="iShape">
+            <div>
+                <label for="iShape">shape:</label>
+                <select name="shape" id="iShape" style="margin-top: 10px">
                     <option value="circle">Circle</option>
                     <option value="square">Square</option>
                 </select>
-            </div>
-            <div class="greyed">
-                color settings ...
             </div>
             <div class="space"><!-- space --></div>
             <div>
@@ -144,6 +144,10 @@
             <div>
                 <input class="reactive_range" type="range" id="slider_dot_size_max" min="1" max="1000" value="300">
                 <label for="slider_dot_size_max">dot size max</label>
+            </div>
+            <div>
+                <input type="checkbox" id="iColor" value="true" onchange="stippler.toggleColor()">
+                <label for="iColor">colored output</label>
             </div>
             <div class="centerContent">
                 <input type="button" value="Re-Stipple" onclick="stippleDensity();" />

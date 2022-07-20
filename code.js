@@ -560,14 +560,9 @@ class Stippler {
                     let euler_z =       cellStipple.weightedSumY2           / cellStipple.density       - cellCenter[1] * cellCenter[1];
                     let orientation = Math.atan2(euler_y, euler_x - euler_z) / 2.0;
 
-                    //let deltaX = Math.cos(orientation);
-                    //let deltaY = Math.sin(orientation);
-
-                    let deltaX = cellCenter[0] - cellStipple.x;
-                    let deltaY = cellCenter[1] - cellStipple.y;
-                    let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                    deltaX /= vectorLength;
-                    deltaY /= vectorLength;
+                    let deltaX = Math.cos(orientation);
+                    let deltaY = Math.sin(orientation);
+                    
 
                     splits.push({
                         x: cellCenter[0] + dist * deltaX,

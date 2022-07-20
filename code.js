@@ -448,6 +448,9 @@ class Stippler {
             this.#stipples[i].density = 0;
             this.#stipples[i].weightedSumX = 0;
             this.#stipples[i].weightedSumY = 0;
+            this.#stipples[i].weightedSumX2 = 0;
+            this.#stipples[i].weightedSumY2 = 0;
+            this.#stipples[i].weightedSumXY = 0;
 
             this.#stipples[i].x *= width;
             this.#stipples[i].y *= height;
@@ -472,6 +475,9 @@ class Stippler {
                 cellStipple.density += sampledDensity;
                 cellStipple.weightedSumX += x*sampledDensity;
                 cellStipple.weightedSumY += y*sampledDensity;
+                cellStipple.weightedSumX2 += x*x*sampledDensity;
+                cellStipple.weightedSumY2 += y*y*sampledDensity;
+                cellStipple.weightedSumXY += x*y*sampledDensity;
             }
         }
 
@@ -500,7 +506,16 @@ class Stippler {
                     //split
                     let cellCenter = d3.polygonCentroid(polygon);
 
+                    //calculate orientation for the split operation (instead of just splitting across the center)
                     let dist = Math.sqrt(area / Math.PI) / 2.0;
+                    let euler_x =       cellStipple.weightedSumX2           / cellStipple.density       - cellCenter[0] * cellCenter[0];
+                    let euler_y = 2 * ( cellStipple.weightedSumXY           / cellStipple.density       - cellCenter[0] * cellCenter[1]);
+                    let euler_z =       cellStipple.weightedSumY2           / cellStipple.density       - cellCenter[1] * cellCenter[1];
+                    let orientation = Math.atan2(euler_y, euler_x - euler_z) / 2.0;
+
+                    //let deltaX = Math.cos(orientation);
+                    //let deltaY = Math.sin(orientation);
+
                     let deltaX = cellCenter[0] - cellStipple.x;
                     let deltaY = cellCenter[1] - cellStipple.y;
                     let vectorLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -713,22 +728,21 @@ class Renderer {
      * @param data float buffer with stride 3: x,y,radius
      * @param clearBefore if false, no clear is called and already rendered content remains
      */
-    drawVoronoi(data, clearBefore = true) {
+    drawVoronoi(data, clearBefore=true) {
         //generate voronoi
-        let points = Array(numStipples)
+        let points = Array(data.length/6)
             .fill()
             .map((_, i) => ({
-                x: data[i*3],
-                y: data[i*3+1]
+                x: data[i*6],
+                y: data[i*6+1]
             }));
 
         let voronoi = d3.Delaunay.from(
             points,
-            (d) => d.x,
-            (d) => d.y
+            (d) => (d.x-0.5) * 2,
+            (d) => (d.y-0.5) * 2
         ).voronoi([-1, -1, 1, 1]);
 
-        let _segments = voronoi.render();
         const segments = voronoi.render().split(/M/).slice(1);
         let lines = new Array(segments.length*4);
         for (let i = 0; i < segments.length; i++) { //p1x,p1y L p2x,p2y
@@ -749,7 +763,7 @@ class Renderer {
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#vboLines);
         this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(lines), this.#gl.STATIC_DRAW);
         let aPos = this.#gl.getAttribLocation(this.#shaderLines, "aPos");
-        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 0, 0);
+        this.#gl.vertexAttribPointer(aPos, 2, this.#gl.FLOAT, false, 24, 0);
         this.#gl.enableVertexAttribArray(aPos);
 
         //uniforms

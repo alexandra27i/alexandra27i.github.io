@@ -216,16 +216,68 @@ class UI {
 //region Stippling
 //----------------------------------------------------------------------------------------------------------------------
 
+/**
+ * Stippling range, min and max of dot sizes
+ * @type {number[]}
+ */
 var STIPPLING_RANGE = [0.1, 3];
+
+/**
+ * lower range minimum boundary to prevent too long calculations
+ * @type {number}
+ */
 const STIPPLING_RANGE_MINMAX = 1;
+
+/**
+ * upper range minimum boundary to prevent too long calculations
+ * @type {number}
+ */
 const STIPPLING_RANGE_MINMIN = 0.1;
+
+/**
+ * maximum iterations allowed to prevent too long calculations
+ * @type {number}
+ */
 const STIPPLING_MAX_ITERATIONS = 50;
+
+/**
+ * default background of output, rgb values for white
+ * @type {number[]}
+ */
 const COLOR_WEBGL_BACK = [1.0, 1.0, 1.0];
+
+/**
+ * default color of stipple output, rgb values for black
+ * @type {number[]}
+ */
 const COLOR_WEBGL_FRONT = [0.0, 0.0, 0.0];
+
+/**
+ * density values of input data, later initialized with input values
+ * @type {null}
+ */
 let DENSITY = null;
+
+/**
+ * color values of input data, later initialized with input values if they contain color information
+ * @type {null}
+ */
 let COLOR_DENSITY = null;
 
+/**
+ * boolean indicating the gestalt of the stipples
+ * true: circles are drawn
+ * false: squares are drawn
+ * @type {boolean}
+ */
 let circle = true;
+
+/**
+ * boolean indicating if color is used for the output
+ * true: stipples are colored, if color data is available
+ * false: stipples are drawn in black
+ * @type {boolean}
+ */
 let colored = false;
 
 
@@ -234,6 +286,7 @@ let colored = false;
  * use in the following order: Initialize -> Run/Step -> Draw
  */
 class Stippler {
+
     #initialized=false;
 
     #renderer;
@@ -304,12 +357,6 @@ class Stippler {
             };
         }
 
-        //#mbDensity;
-        //#mbWeight;
-        //#mbContourSteps;
-        //#mbGaussianSize;                // yielded good results when close to stipple
-        //#mbLowPassFiltered;
-
         this.#mbContourSteps = 5;
         this.#mbWeight = 1; //denoted [0,1]
         this.#mbContourMap = JSON.parse(JSON.stringify(density));
@@ -357,7 +404,7 @@ class Stippler {
             }
         }
 
-        // initalize density' functon for machBanding
+        // initalize density function for machBanding
         for(let x = 0; x < this.#mbHighPassFiltered.length; x++) {
             for (let y = 0; y < this.#mbHighPassFiltered[x].length; y++) {
                 if (this.#mbHighPassFiltered[x][y]>0) {
@@ -641,6 +688,9 @@ class Stippler {
         if(voronoiLines) this.#renderer.drawVoronoi(this.#stippleBuffer, false);
     }
 
+    /**
+     * force clears everything in renderer
+     */
     forceClear() {
         this.#renderer.forceClear();
     }
@@ -838,6 +888,9 @@ class Renderer {
         this.#gl.viewport(0,0,this.#canvas.width, this.#canvas.height);
     }
 
+    /**
+     * force clears everything on renderer, sets color to clear color, clears buffer
+     */
     forceClear() {
         this.#gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1.0);
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT);
